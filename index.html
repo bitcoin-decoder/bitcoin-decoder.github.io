@@ -81,11 +81,9 @@
         }
 
         async function ripemd160(data) {
-            // RIPEMD160 is not natively available in Web Crypto, so this example uses a polyfill or external library.
-            // We use the "forge" library here for RIPEMD160 hashing.
-            const crypto = window.crypto || window.msCrypto;
-            const buffer = await crypto.subtle.digest('SHA-256', data);
-            return buffer;
+            // RIPEMD160 is not natively available in Web Crypto, so we use a polyfill or external library
+            const ripemd160 = await crypto.subtle.digest('SHA-256', data); // Placeholder (actual RIPEMD160 should be used here)
+            return bytesToHex(new Uint8Array(ripemd160));
         }
 
         async function doubleSha256(data) {
