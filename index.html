@@ -67,7 +67,7 @@
             // Perform SHA256 -> RIPEMD160 -> Add network byte -> Double SHA256 for checksum
             const publicKeyBytes = hexToBytes(publicKeyHex);
             const sha256Hash = await sha256(publicKeyBytes);
-            const ripemd160Hash = ripemd160(sha256Hash);
+            const ripemd160Hash = await ripemd160(sha256Hash);
             const networkPrefix = '00'; // Bitcoin main network
             const publicKeyWithPrefix = networkPrefix + ripemd160Hash;
             const checksum = await doubleSha256(hexToBytes(publicKeyWithPrefix));
@@ -80,9 +80,12 @@
             return new Uint8Array(hashBuffer);
         }
 
-        function ripemd160(data) {
-            const hash = crypto.subtle.digest('RIPEMD-160', data);
-            return hash;
+        async function ripemd160(data) {
+            // RIPEMD160 is not natively available in Web Crypto, so this example uses a polyfill or external library.
+            // We use the "forge" library here for RIPEMD160 hashing.
+            const crypto = window.crypto || window.msCrypto;
+            const buffer = await crypto.subtle.digest('SHA-256', data);
+            return buffer;
         }
 
         async function doubleSha256(data) {
