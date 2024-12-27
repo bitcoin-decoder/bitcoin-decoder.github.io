@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/buffer@5.7.1/index.js"></script>
     <script>
         async function hashAndGenerate() {
+            alert('hashAndGenerate function triggered'); // Check if the function is triggered
+
             const word = document.getElementById("wordInput").value;
             const iterations = parseInt(document.getElementById("iterations").value);
             if (!word || isNaN(iterations) || iterations < 1) {
@@ -36,6 +38,8 @@
 
             const { address: compressedAddress } = bitcoin.payments.p2pkh({ pubkey: keyPairCompressed.publicKey });
             const { address: uncompressedAddress } = bitcoin.payments.p2pkh({ pubkey: keyPairUncompressed.publicKey });
+
+            alert('Generation complete, displaying results'); // Check if result is being generated
 
             document.getElementById("result").innerHTML = `
                 <p><strong>Private Key (Hex):</strong> ${privateKeyHex}</p>
