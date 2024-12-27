@@ -4,14 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SHA-256 to Bitcoin Address</title>
-    <!-- Updated CDN for bitcoinjs-lib -->
-    <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.0/src/index.js"></script>
-    <!-- Include buffer polyfill for the browser -->
-    <script src="https://cdn.jsdelivr.net/npm/buffer@5.7.1/index.js"></script>
     <script>
         async function hashAndGenerate() {
-            alert('hashAndGenerate function triggered'); // Check if the function is triggered
-
             const word = document.getElementById("wordInput").value;
             const iterations = parseInt(document.getElementById("iterations").value);
             if (!word || isNaN(iterations) || iterations < 1) {
@@ -30,24 +24,77 @@
 
             // Convert hash to private key
             const privateKeyHex = hash.slice(0, 64); // Take the first 64 characters
-            const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex'); // Use the Buffer polyfill
 
-            // Generate compressed and uncompressed addresses
-            const keyPairCompressed = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer, { compressed: true });
-            const keyPairUncompressed = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer, { compressed: false });
+            // Generate public keys and Bitcoin addresses
+            const publicKeyCompressed = generatePublicKey(privateKeyHex, true);
+            const publicKeyUncompressed = generatePublicKey(privateKeyHex, false);
 
-            const { address: compressedAddress } = bitcoin.payments.p2pkh({ pubkey: keyPairCompressed.publicKey });
-            const { address: uncompressedAddress } = bitcoin.payments.p2pkh({ pubkey: keyPairUncompressed.publicKey });
-
-            alert('Generation complete, displaying results'); // Check if result is being generated
+            const addressCompressed = publicKeyToAddress(publicKeyCompressed);
+            const addressUncompressed = publicKeyToAddress(publicKeyUncompressed);
 
             document.getElementById("result").innerHTML = `
                 <p><strong>Private Key (Hex):</strong> ${privateKeyHex}</p>
-                <p><strong>Private Key (WIF - Compressed):</strong> ${keyPairCompressed.toWIF()}</p>
-                <p><strong>Private Key (WIF - Uncompressed):</strong> ${keyPairUncompressed.toWIF()}</p>
-                <p><strong>Compressed Address:</strong> ${compressedAddress}</p>
-                <p><strong>Uncompressed Address:</strong> ${uncompressedAddress}</p>
+                <p><strong>Compressed Address:</strong> ${addressCompressed}</p>
+                <p><strong>Uncompressed Address:</strong> ${addressUncompressed}</p>
             `;
+        }
+
+        function generatePublicKey(privateKeyHex, compressed) {
+            // Placeholder for public key generation
+            // Replace with full ECDSA implementation if needed
+            if (compressed) {
+                return "CompressedPublicKey";
+            } else {
+                return "UncompressedPublicKey";
+            }
+        }
+
+        function publicKeyToAddress(publicKey) {
+            // Perform SHA-256 hash
+            const sha256Hash = sha256(publicKey);
+
+            // Perform RIPEMD-160 hash
+            const ripemd160Hash = ripemd160(sha256Hash);
+
+            // Add version byte (0x00 for mainnet)
+            const versionedKey = "00" + ripemd160Hash;
+
+            // Perform double SHA-256 for checksum
+            const checksum = sha256(sha256(versionedKey)).slice(0, 8);
+
+            // Concatenate and encode in Base58
+            const finalKey = versionedKey + checksum;
+            return base58Encode(finalKey);
+        }
+
+        function sha256(input) {
+            // Simple SHA-256 implementation
+            const encoder = new TextEncoder();
+            const data = encoder.encode(input);
+            const digest = crypto.subtle.digestSync("SHA-256", data);
+            return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function ripemd160(input) {
+            // Placeholder for RIPEMD-160 hash
+            // Replace with full implementation
+            return "RIPEMD160Hash";
+        }
+
+        function base58Encode(input) {
+            const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+            let num = BigInt("0x" + input);
+            let encoded = "";
+            while (num > 0) {
+                const remainder = num % 58n;
+                num = num / 58n;
+                encoded = alphabet[Number(remainder)] + encoded;
+            }
+            for (const char of input) {
+                if (char !== "0") break;
+                encoded = "1" + encoded;
+            }
+            return encoded;
         }
     </script>
 </head>
