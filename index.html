@@ -35,8 +35,8 @@
                 const compressedPublicKey = privateKeyToCompressedPublic(privateKeyHex);
                 const uncompressedPublicKey = privateKeyToPublic(privateKeyHex);
 
-                const compressedAddress = publicKeyToAddress(compressedPublicKey);
-                const uncompressedAddress = publicKeyToAddress(uncompressedPublicKey);
+                const compressedAddress = await publicKeyToAddress(compressedPublicKey);
+                const uncompressedAddress = await publicKeyToAddress(uncompressedPublicKey);
 
                 // Display results
                 resultDiv.innerHTML = `
@@ -63,28 +63,32 @@
             return publicKey;
         }
 
-        function publicKeyToAddress(publicKeyHex) {
+        async function publicKeyToAddress(publicKeyHex) {
             // Perform SHA256 -> RIPEMD160 -> Add network byte -> Double SHA256 for checksum
             const publicKeyBytes = hexToBytes(publicKeyHex);
-            const sha256Hash = sha256(publicKeyBytes);
+            const sha256Hash = await sha256(publicKeyBytes);
             const ripemd160Hash = ripemd160(sha256Hash);
             const networkPrefix = '00'; // Bitcoin main network
             const publicKeyWithPrefix = networkPrefix + ripemd160Hash;
-            const checksum = doubleSha256(hexToBytes(publicKeyWithPrefix)).slice(0, 4);
-            const addressHex = publicKeyWithPrefix + bytesToHex(checksum);
+            const checksum = await doubleSha256(hexToBytes(publicKeyWithPrefix));
+            const addressHex = publicKeyWithPrefix + bytesToHex(checksum.slice(0, 4));
             return base58(addressHex);
         }
 
-        function sha256(data) {
-            return crypto.subtle.digest('SHA-256', data);
+        async function sha256(data) {
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            return new Uint8Array(hashBuffer);
         }
 
         function ripemd160(data) {
-            return crypto.subtle.digest('RIPEMD-160', data);
+            const hash = crypto.subtle.digest('RIPEMD-160', data);
+            return hash;
         }
 
-        function doubleSha256(data) {
-            return crypto.subtle.digest('SHA-256', crypto.subtle.digest('SHA-256', data));
+        async function doubleSha256(data) {
+            const firstHash = await sha256(data);
+            const secondHash = await sha256(firstHash);
+            return secondHash;
         }
 
         function base58(hex) {
