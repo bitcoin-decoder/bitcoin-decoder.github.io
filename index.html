@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SHA-256 to Bitcoin Address</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
     <script>
         async function hashAndGenerate() {
             try {
@@ -52,14 +53,14 @@
         function privateKeyToPublic(privateKeyHex) {
             const ec = new elliptic.ec('secp256k1');
             const key = ec.keyFromPrivate(privateKeyHex, 'hex');
-            const publicKey = key.getPublic(true, 'hex'); // Get compressed public key
+            const publicKey = key.getPublic(false, 'hex'); // Uncompressed public key (0x04 prefix)
             return publicKey;
         }
 
         function privateKeyToCompressedPublic(privateKeyHex) {
             const ec = new elliptic.ec('secp256k1');
             const key = ec.keyFromPrivate(privateKeyHex, 'hex');
-            const publicKey = key.getPublic(true, 'hex'); // Compressed public key
+            const publicKey = key.getPublic(true, 'hex'); // Compressed public key (0x02/0x03 prefix)
             return publicKey;
         }
 
@@ -67,7 +68,7 @@
             // Perform SHA256 -> RIPEMD160 -> Add network byte -> Double SHA256 for checksum
             const publicKeyBytes = hexToBytes(publicKeyHex);
             const sha256Hash = await sha256(publicKeyBytes);
-            const ripemd160Hash = await ripemd160(sha256Hash);
+            const ripemd160Hash = ripemd160(sha256Hash);
             const networkPrefix = '00'; // Bitcoin main network
             const publicKeyWithPrefix = networkPrefix + ripemd160Hash;
             const checksum = await doubleSha256(hexToBytes(publicKeyWithPrefix));
@@ -76,14 +77,13 @@
         }
 
         async function sha256(data) {
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            return new Uint8Array(hashBuffer);
+            const hash = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(bytesToHex(data)));
+            return hexToBytes(hash.toString(CryptoJS.enc.Hex));
         }
 
-        async function ripemd160(data) {
-            // Placeholder for RIPEMD160 (requires an external library or polyfill)
-            const hash = await crypto.subtle.digest('SHA-256', data);
-            return bytesToHex(new Uint8Array(hash));
+        function ripemd160(data) {
+            const hash = CryptoJS.RIPEMD160(CryptoJS.SHA256(CryptoJS.enc.Hex.parse(bytesToHex(data))));
+            return hash.toString(CryptoJS.enc.Hex);
         }
 
         async function doubleSha256(data) {
