@@ -30,10 +30,11 @@
                 // Convert hash to private key
                 const privateKeyHex = hash.slice(0, 64); // Take the first 64 characters
 
-                // Generate placeholder public keys and Bitcoin addresses
+                // Generate public keys
                 const publicKeyCompressed = generatePublicKey(privateKeyHex, true);
                 const publicKeyUncompressed = generatePublicKey(privateKeyHex, false);
 
+                // Convert public keys to Bitcoin addresses
                 const addressCompressed = publicKeyToAddress(publicKeyCompressed);
                 const addressUncompressed = publicKeyToAddress(publicKeyUncompressed);
 
@@ -49,17 +50,95 @@
         }
 
         function generatePublicKey(privateKeyHex, compressed) {
-            // Placeholder for public key generation
+            const curve = new EllipticCurve();
+            const privateKey = BigInt('0x' + privateKeyHex);
+            const publicKeyPoint = curve.scalarMultiply(curve.G, privateKey);
+            const x = publicKeyPoint.x.toString(16).padStart(64, '0');
+            const y = publicKeyPoint.y.toString(16).padStart(64, '0');
+
             if (compressed) {
-                return "CompressedPublicKey";
-            } else {
-                return "UncompressedPublicKey";
+                const prefix = publicKeyPoint.y % 2n === 0n ? '02' : '03';
+                return prefix + x;
             }
+            return '04' + x + y;
         }
 
-        function publicKeyToAddress(publicKey) {
-            // Placeholder logic for deriving Bitcoin address
-            return `AddressDerivedFrom(${publicKey})`;
+        function publicKeyToAddress(publicKeyHex) {
+            const sha256Hash = sha256(publicKeyHex);
+            const ripemd160Hash = ripemd160(sha256Hash);
+            const versionedKey = '00' + ripemd160Hash; // Add mainnet prefix
+            const checksum = sha256(sha256(versionedKey)).slice(0, 8); // Take the first 4 bytes
+            const finalKey = versionedKey + checksum;
+            return base58Encode(finalKey);
+        }
+
+        function sha256(hex) {
+            const data = Uint8Array.from(hex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+            return crypto.subtle.digest("SHA-256", data).then(digest => {
+                return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+            });
+        }
+
+        function ripemd160(hex) {
+            // Placeholder implementation (replace with a real RIPEMD-160 function)
+            return hex.slice(0, 40); // Mock RIPEMD-160 (first 20 bytes of SHA-256 hash)
+        }
+
+        function base58Encode(hex) {
+            // Placeholder Base58 encoding (replace with real implementation)
+            return "Base58Encoded(" + hex + ")";
+        }
+
+        class EllipticCurve {
+            constructor() {
+                this.a = 0n;
+                this.b = 7n;
+                this.p = 2n ** 256n - 2n ** 32n - 977n;
+                this.G = { x: 55066263022277343669578718895168534326250603453777594175500187360389116729240n, y: 32670510020758816978083085130507043184471273380659243275938904335757337482424n };
+                this.n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
+            }
+
+            mod(n, p) {
+                return ((n % p) + p) % p;
+            }
+
+            add(point1, point2) {
+                if (!point1) return point2;
+                if (!point2) return point1;
+
+                const m = this.mod((point2.y - point1.y) * this.modInverse(point2.x - point1.x, this.p), this.p);
+                const x = this.mod(m * m - point1.x - point2.x, this.p);
+                const y = this.mod(m * (point1.x - x) - point1.y, this.p);
+
+                return { x, y };
+            }
+
+            double(point) {
+                const m = this.mod((3n * point.x ** 2n + this.a) * this.modInverse(2n * point.y, this.p), this.p);
+                const x = this.mod(m * m - 2n * point.x, this.p);
+                const y = this.mod(m * (point.x - x) - point.y, this.p);
+
+                return { x, y };
+            }
+
+            scalarMultiply(point, scalar) {
+                let result = null;
+                let addend = point;
+
+                while (scalar) {
+                    if (scalar & 1n) {
+                        result = this.add(result, addend);
+                    }
+                    addend = this.double(addend);
+                    scalar >>= 1n;
+                }
+
+                return result;
+            }
+
+            modInverse(k, p) {
+                return this.mod(k ** (p - 2n), p);
+            }
         }
     </script>
 </head>
