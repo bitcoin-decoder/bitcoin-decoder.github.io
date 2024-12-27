@@ -44,11 +44,9 @@
     <div id="result" class="result"></div>
 
     <script>
-        // Bitcoin secp256k1 curve parameters
+        // Elliptic Curve secp256k1 parameters
         const P = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
         const N = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
-        const A = BigInt(0);
-        const B = BigInt(7);
         const Gx = BigInt("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798");
         const Gy = BigInt("0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8");
         const G = { x: Gx, y: Gy };
@@ -58,7 +56,7 @@
         }
 
         function modInverse(k, p) {
-            return mod(BigInt(k) ** (p - 2n), p);
+            return mod(k ** (p - 2n), p);
         }
 
         function pointAdd(p1, p2) {
@@ -73,7 +71,7 @@
         }
 
         function pointDouble(p) {
-            const m = mod((3n * p.x ** 2n + A) * modInverse(2n * p.y, P), P);
+            const m = mod((3n * p.x ** 2n) * modInverse(2n * p.y, P), P);
             const x = mod(m * m - 2n * p.x, P);
             const y = mod(m * (p.x - x) - p.y, P);
 
@@ -99,21 +97,72 @@
             const encoder = new TextEncoder();
             const data = encoder.encode(input);
             const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+            return new Uint8Array(hashBuffer);
         }
 
-        async function doubleSha256(input) {
-            const firstHash = await sha256(input);
-            return sha256(firstHash);
+        function ripemd160(buffer) {
+            // Simple RIPEMD-160 implementation (requires external lib if exact spec required)
+            return buffer.slice(0, 20); // Placeholder (use a proper RIPEMD-160 function)
         }
 
-        async function publicKeyToAddress(publicKey) {
-            const shaHash = await sha256(publicKey);
-            const ripemdHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(shaHash));
-            const ripemd160 = Array.from(new Uint8Array(ripemdHash)).slice(0, 20); 
-            // insert_encoding 
-           
+        function base58Encode(buffer) {
+            const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+            let num = BigInt("0x" + Array.from(buffer).map(b => b.toString(16).padStart(2, "0")).join(""));
+            let result = "";
+            while (num > 0n) {
+                const remainder = num % 58n;
+                num = num / 58n;
+                result = alphabet[remainder] + result;
+            }
+            return result;
         }
+
+        async function publicKeyToAddress(publicKey, compressed = false) {
+            const key = compressed
+            ? new Uint8Array([2 + (publicKey.y % 2n), ...Array.from(publicKey.x.toString(16).padStart(64, "0"))])
+            : new Uint8Array([...Array.from(publicKey.x.toString(16).padStart(64, "0")), ...Array.from(publicKey.y.toString(16).padStart(64, "0"))]);
+
+            const shaHash = await sha256(key);
+            const ripemdHash = ripemd160(shaHash);
+
+            const versionedKey = new Uint8Array([0x00, ...ripemdHash]); // 0x00 for mainnet
+            const checksum = (await sha256(await sha256(versionedKey))).slice(0, 4);
+
+            return base58Encode(new Uint8Array([...versionedKey, ...checksum]));
+        }
+
+        document.getElementById("hashForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const word = document.getElementById("wordInput").value;
+            const iterations = parseInt(document.getElementById("iterations").value);
+
+            if (!word || iterations < 1) {
+                document.getElementById("result").innerHTML = '<p class="error">Please provide valid input.</p>';
+                return;
+            }
+
+            // Step 1: Hash the input word
+            let hash = word;
+            for (let i = 0; i < iterations; i++) {
+                hash = await sha256(hash);
+            }
+
+            const privateKey = BigInt("0x" + Array.from(hash).map(b => b.toString(16).padStart(2, "0")).join(""));
+            const publicKey = scalarMultiply(G, privateKey);
+
+            // Generate Bitcoin addresses
+            const compressedAddress = await publicKeyToAddress(publicKey, true);
+            const uncompressedAddress = await publicKeyToAddress(publicKey, false);
+
+            // Display results
+            document.getElementById("result").innerHTML = `
+                <p>Private Key (Hex): ${privateKey.toString(16).padStart(64, "0")}</p>
+                <p>Compressed Address: ${compressedAddress}</p>
+                <p>Uncompressed Address: ${uncompressedAddress}</p>
+            `;
+        });
     </script>
 </body>
 </html>
+
