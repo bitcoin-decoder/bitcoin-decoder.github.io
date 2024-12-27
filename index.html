@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SHA-256 to Bitcoin Address</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
     <script>
         async function hashAndGenerate() {
             try {
@@ -49,22 +50,21 @@
         }
 
         function privateKeyToPublic(privateKeyHex) {
-            const privateKeyBytes = hexToBytes(privateKeyHex);
-            const key = ecdsaSignKey(privateKeyBytes);
-            const publicKeyHex = bytesToHex(key.to_string());
-            return '04' + publicKeyHex; // Prefix '04' for uncompressed public key
+            const ec = new elliptic.ec('secp256k1');
+            const key = ec.keyFromPrivate(privateKeyHex, 'hex');
+            const publicKey = key.getPublic(true, 'hex'); // Get compressed public key
+            return publicKey;
         }
 
         function privateKeyToCompressedPublic(privateKeyHex) {
-            const privateKeyBytes = hexToBytes(privateKeyHex);
-            const key = ecdsaSignKey(privateKeyBytes);
-            const publicKeyHex = bytesToHex(key.to_string());
-            const x = publicKeyHex.slice(0, 64); // Take X coordinate
-            const parity = parseInt(publicKeyHex.slice(-1), 16) % 2 === 0 ? '02' : '03'; // Check if Y is even or odd
-            return parity + x; // Return compressed public key
+            const ec = new elliptic.ec('secp256k1');
+            const key = ec.keyFromPrivate(privateKeyHex, 'hex');
+            const publicKey = key.getPublic(true, 'hex'); // Compressed public key
+            return publicKey;
         }
 
         function publicKeyToAddress(publicKeyHex) {
+            // Perform SHA256 -> RIPEMD160 -> Add network byte -> Double SHA256 for checksum
             const publicKeyBytes = hexToBytes(publicKeyHex);
             const sha256Hash = sha256(publicKeyBytes);
             const ripemd160Hash = ripemd160(sha256Hash);
@@ -96,17 +96,6 @@
                 num /= 58n;
             }
             return result;
-        }
-
-        function ecdsaSignKey(privateKeyBytes) {
-            const ecdsa = window.crypto.subtle.importKey(
-                'raw',
-                privateKeyBytes,
-                { name: 'ECDSA', namedCurve: 'P-256' },
-                false,
-                ['sign']
-            );
-            return ecdsa;
         }
 
         function hexToBytes(hex) {
