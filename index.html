@@ -4,156 +4,116 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SHA-256 to Bitcoin Address</title>
-    <script>
-        async function hashAndGenerate() {
-            try {
-                const word = document.getElementById("wordInput").value;
-                const iterations = parseInt(document.getElementById("iterations").value);
-                const resultDiv = document.getElementById("result");
-
-                resultDiv.innerHTML = ""; // Clear previous results
-
-                if (!word || isNaN(iterations) || iterations < 1) {
-                    resultDiv.innerHTML = `<p style="color: red;">Please enter a valid word and a positive number of iterations.</p>`;
-                    return;
-                }
-
-                // Perform the hashing
-                let hash = word;
-                for (let i = 0; i < iterations; i++) {
-                    const encoder = new TextEncoder();
-                    const data = encoder.encode(hash);
-                    const digest = await crypto.subtle.digest("SHA-256", data);
-                    hash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
-                }
-
-                // Convert hash to private key
-                const privateKeyHex = hash.slice(0, 64); // Take the first 64 characters
-
-                // Generate public keys
-                const publicKeyCompressed = generatePublicKey(privateKeyHex, true);
-                const publicKeyUncompressed = generatePublicKey(privateKeyHex, false);
-
-                // Convert public keys to Bitcoin addresses
-                const addressCompressed = publicKeyToAddress(publicKeyCompressed);
-                const addressUncompressed = publicKeyToAddress(publicKeyUncompressed);
-
-                // Display results
-                resultDiv.innerHTML = `
-                    <p><strong>Private Key (Hex):</strong> ${privateKeyHex}</p>
-                    <p><strong>Compressed Address:</strong> ${addressCompressed}</p>
-                    <p><strong>Uncompressed Address:</strong> ${addressUncompressed}</p>
-                `;
-            } catch (error) {
-                document.getElementById("result").innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
-            }
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
         }
-
-        function generatePublicKey(privateKeyHex, compressed) {
-            const curve = new EllipticCurve();
-            const privateKey = BigInt('0x' + privateKeyHex);
-            const publicKeyPoint = curve.scalarMultiply(curve.G, privateKey);
-            const x = publicKeyPoint.x.toString(16).padStart(64, '0');
-            const y = publicKeyPoint.y.toString(16).padStart(64, '0');
-
-            if (compressed) {
-                const prefix = publicKeyPoint.y % 2n === 0n ? '02' : '03';
-                return prefix + x;
-            }
-            return '04' + x + y;
+        input, button {
+            font-size: 16px;
+            padding: 5px;
+            margin: 5px 0;
         }
-
-        function publicKeyToAddress(publicKeyHex) {
-            const sha256Hash = sha256(publicKeyHex);
-            const ripemd160Hash = ripemd160(sha256Hash);
-            const versionedKey = '00' + ripemd160Hash; // Add mainnet prefix
-            const checksum = sha256(sha256(versionedKey)).slice(0, 8); // Take the first 4 bytes
-            const finalKey = versionedKey + checksum;
-            return base58Encode(finalKey);
+        button {
+            cursor: pointer;
         }
-
-        function sha256(hex) {
-            const data = Uint8Array.from(hex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
-            return crypto.subtle.digest("SHA-256", data).then(digest => {
-                return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
-            });
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
         }
-
-        function ripemd160(hex) {
-            // Placeholder implementation (replace with a real RIPEMD-160 function)
-            return hex.slice(0, 40); // Mock RIPEMD-160 (first 20 bytes of SHA-256 hash)
+        .error {
+            color: red;
         }
-
-        function base58Encode(hex) {
-            // Placeholder Base58 encoding (replace with real implementation)
-            return "Base58Encoded(" + hex + ")";
-        }
-
-        class EllipticCurve {
-            constructor() {
-                this.a = 0n;
-                this.b = 7n;
-                this.p = 2n ** 256n - 2n ** 32n - 977n;
-                this.G = { x: 55066263022277343669578718895168534326250603453777594175500187360389116729240n, y: 32670510020758816978083085130507043184471273380659243275938904335757337482424n };
-                this.n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
-            }
-
-            mod(n, p) {
-                return ((n % p) + p) % p;
-            }
-
-            add(point1, point2) {
-                if (!point1) return point2;
-                if (!point2) return point1;
-
-                const m = this.mod((point2.y - point1.y) * this.modInverse(point2.x - point1.x, this.p), this.p);
-                const x = this.mod(m * m - point1.x - point2.x, this.p);
-                const y = this.mod(m * (point1.x - x) - point1.y, this.p);
-
-                return { x, y };
-            }
-
-            double(point) {
-                const m = this.mod((3n * point.x ** 2n + this.a) * this.modInverse(2n * point.y, this.p), this.p);
-                const x = this.mod(m * m - 2n * point.x, this.p);
-                const y = this.mod(m * (point.x - x) - point.y, this.p);
-
-                return { x, y };
-            }
-
-            scalarMultiply(point, scalar) {
-                let result = null;
-                let addend = point;
-
-                while (scalar) {
-                    if (scalar & 1n) {
-                        result = this.add(result, addend);
-                    }
-                    addend = this.double(addend);
-                    scalar >>= 1n;
-                }
-
-                return result;
-            }
-
-            modInverse(k, p) {
-                return this.mod(k ** (p - 2n), p);
-            }
-        }
-    </script>
+    </style>
 </head>
 <body>
     <h1>SHA-256 to Bitcoin Address Generator</h1>
-    <form onsubmit="event.preventDefault(); hashAndGenerate();">
+    <form id="hashForm">
         <label for="wordInput">Enter a word or phrase:</label><br>
-        <input type="text" id="wordInput" placeholder="Enter your word here"><br><br>
+        <input type="text" id="wordInput" placeholder="Enter your word here" required><br>
 
         <label for="iterations">Number of Hash Iterations:</label><br>
-        <input type="number" id="iterations" min="1" placeholder="Enter number of iterations"><br><br>
+        <input type="number" id="iterations" min="1" placeholder="Enter number of iterations" value="1" required><br>
 
         <button type="submit">Generate</button>
     </form>
 
-    <div id="result" style="margin-top: 20px;"></div>
+    <div id="result" class="result"></div>
+
+    <script>
+        // Bitcoin secp256k1 curve parameters
+        const P = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+        const N = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+        const A = BigInt(0);
+        const B = BigInt(7);
+        const Gx = BigInt("0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798");
+        const Gy = BigInt("0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8");
+        const G = { x: Gx, y: Gy };
+
+        function mod(n, p) {
+            return ((n % p) + p) % p;
+        }
+
+        function modInverse(k, p) {
+            return mod(BigInt(k) ** (p - 2n), p);
+        }
+
+        function pointAdd(p1, p2) {
+            if (!p1) return p2;
+            if (!p2) return p1;
+
+            const m = mod((p2.y - p1.y) * modInverse(p2.x - p1.x, P), P);
+            const x = mod(m * m - p1.x - p2.x, P);
+            const y = mod(m * (p1.x - x) - p1.y, P);
+
+            return { x, y };
+        }
+
+        function pointDouble(p) {
+            const m = mod((3n * p.x ** 2n + A) * modInverse(2n * p.y, P), P);
+            const x = mod(m * m - 2n * p.x, P);
+            const y = mod(m * (p.x - x) - p.y, P);
+
+            return { x, y };
+        }
+
+        function scalarMultiply(point, scalar) {
+            let result = null;
+            let addend = point;
+
+            while (scalar) {
+                if (scalar & 1n) {
+                    result = pointAdd(result, addend);
+                }
+                addend = pointDouble(addend);
+                scalar >>= 1n;
+            }
+
+            return result;
+        }
+
+        async function sha256(input) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(input);
+            const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+        }
+
+        async function doubleSha256(input) {
+            const firstHash = await sha256(input);
+            return sha256(firstHash);
+        }
+
+        async function publicKeyToAddress(publicKey) {
+            const shaHash = await sha256(publicKey);
+            const ripemdHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(shaHash));
+            const ripemd160 = Array.from(new Uint8Array(ripemdHash)).slice(0, 20); 
+            // insert_encoding 
+           
+        }
+    </script>
 </body>
 </html>
