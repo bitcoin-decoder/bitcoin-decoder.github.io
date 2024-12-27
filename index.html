@@ -30,36 +30,95 @@
                 // Convert hash to private key
                 const privateKeyHex = hash.slice(0, 64); // Take the first 64 characters
 
-                // Generate placeholder public keys and Bitcoin addresses
-                const publicKeyCompressed = generatePublicKey(privateKeyHex, true);
-                const publicKeyUncompressed = generatePublicKey(privateKeyHex, false);
+                // Generate the public key and Bitcoin address
+                const compressedPublicKey = privateKeyToCompressedPublic(privateKeyHex);
+                const uncompressedPublicKey = privateKeyToPublic(privateKeyHex);
 
-                const addressCompressed = publicKeyToAddress(publicKeyCompressed);
-                const addressUncompressed = publicKeyToAddress(publicKeyUncompressed);
+                const compressedAddress = publicKeyToAddress(compressedPublicKey);
+                const uncompressedAddress = publicKeyToAddress(uncompressedPublicKey);
 
                 // Display results
                 resultDiv.innerHTML = `
                     <p><strong>Private Key (Hex):</strong> ${privateKeyHex}</p>
-                    <p><strong>Compressed Address:</strong> ${addressCompressed}</p>
-                    <p><strong>Uncompressed Address:</strong> ${addressUncompressed}</p>
+                    <p><strong>Compressed Address:</strong> ${compressedAddress}</p>
+                    <p><strong>Uncompressed Address:</strong> ${uncompressedAddress}</p>
                 `;
             } catch (error) {
                 document.getElementById("result").innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
             }
         }
 
-        function generatePublicKey(privateKeyHex, compressed) {
-            // Placeholder for public key generation
-            if (compressed) {
-                return "CompressedPublicKey";
-            } else {
-                return "UncompressedPublicKey";
-            }
+        function privateKeyToPublic(privateKeyHex) {
+            const privateKeyBytes = hexToBytes(privateKeyHex);
+            const key = ecdsaSignKey(privateKeyBytes);
+            const publicKeyHex = bytesToHex(key.to_string());
+            return '04' + publicKeyHex; // Prefix '04' for uncompressed public key
         }
 
-        function publicKeyToAddress(publicKey) {
-            // Placeholder logic for deriving Bitcoin address
-            return `AddressDerivedFrom(${publicKey})`;
+        function privateKeyToCompressedPublic(privateKeyHex) {
+            const privateKeyBytes = hexToBytes(privateKeyHex);
+            const key = ecdsaSignKey(privateKeyBytes);
+            const publicKeyHex = bytesToHex(key.to_string());
+            const x = publicKeyHex.slice(0, 64); // Take X coordinate
+            const parity = parseInt(publicKeyHex.slice(-1), 16) % 2 === 0 ? '02' : '03'; // Check if Y is even or odd
+            return parity + x; // Return compressed public key
+        }
+
+        function publicKeyToAddress(publicKeyHex) {
+            const publicKeyBytes = hexToBytes(publicKeyHex);
+            const sha256Hash = sha256(publicKeyBytes);
+            const ripemd160Hash = ripemd160(sha256Hash);
+            const networkPrefix = '00'; // Bitcoin main network
+            const publicKeyWithPrefix = networkPrefix + ripemd160Hash;
+            const checksum = doubleSha256(hexToBytes(publicKeyWithPrefix)).slice(0, 4);
+            const addressHex = publicKeyWithPrefix + bytesToHex(checksum);
+            return base58(addressHex);
+        }
+
+        function sha256(data) {
+            return crypto.subtle.digest('SHA-256', data);
+        }
+
+        function ripemd160(data) {
+            return crypto.subtle.digest('RIPEMD-160', data);
+        }
+
+        function doubleSha256(data) {
+            return crypto.subtle.digest('SHA-256', crypto.subtle.digest('SHA-256', data));
+        }
+
+        function base58(hex) {
+            const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            let num = BigInt('0x' + hex);
+            let result = '';
+            while (num > 0) {
+                result = alphabet[Number(num % 58n)] + result;
+                num /= 58n;
+            }
+            return result;
+        }
+
+        function ecdsaSignKey(privateKeyBytes) {
+            const ecdsa = window.crypto.subtle.importKey(
+                'raw',
+                privateKeyBytes,
+                { name: 'ECDSA', namedCurve: 'P-256' },
+                false,
+                ['sign']
+            );
+            return ecdsa;
+        }
+
+        function hexToBytes(hex) {
+            let bytes = [];
+            for (let i = 0; i < hex.length; i += 2) {
+                bytes.push(parseInt(hex.substr(i, 2), 16));
+            }
+            return new Uint8Array(bytes);
+        }
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
         }
     </script>
 </head>
