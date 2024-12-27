@@ -4,91 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SHA-256 to Bitcoin Address</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            line-height: 1.6;
+    <script>
+        async function hashAndGenerate() {
+            try {
+                const word = document.getElementById("wordInput").value;
+                const iterations = parseInt(document.getElementById("iterations").value);
+                const resultDiv = document.getElementById("result");
+
+                resultDiv.innerHTML = ""; // Clear previous results
+
+                if (!word || isNaN(iterations) || iterations < 1) {
+                    resultDiv.innerHTML = `<p style="color: red;">Please enter a valid word and a positive number of iterations.</p>`;
+                    return;
+                }
+
+                // Perform the hashing
+                let hash = word;
+                for (let i = 0; i < iterations; i++) {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(hash);
+                    const digest = await crypto.subtle.digest("SHA-256", data);
+                    hash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+                }
+
+                // Convert hash to private key
+                const privateKeyHex = hash.slice(0, 64); // Take the first 64 characters
+
+                // Generate placeholder public keys and Bitcoin addresses
+                const publicKeyCompressed = generatePublicKey(privateKeyHex, true);
+                const publicKeyUncompressed = generatePublicKey(privateKeyHex, false);
+
+                const addressCompressed = publicKeyToAddress(publicKeyCompressed);
+                const addressUncompressed = publicKeyToAddress(publicKeyUncompressed);
+
+                // Display results
+                resultDiv.innerHTML = `
+                    <p><strong>Private Key (Hex):</strong> ${privateKeyHex}</p>
+                    <p><strong>Compressed Address:</strong> ${addressCompressed}</p>
+                    <p><strong>Uncompressed Address:</strong> ${addressUncompressed}</p>
+                `;
+            } catch (error) {
+                document.getElementById("result").innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
         }
-        input, button {
-            font-size: 16px;
-            padding: 5px;
-            margin: 5px 0;
+
+        function generatePublicKey(privateKeyHex, compressed) {
+            // Placeholder for public key generation
+            if (compressed) {
+                return "CompressedPublicKey";
+            } else {
+                return "UncompressedPublicKey";
+            }
         }
-        button {
-            cursor: pointer;
+
+        function publicKeyToAddress(publicKey) {
+            // Placeholder logic for deriving Bitcoin address
+            return `AddressDerivedFrom(${publicKey})`;
         }
-        .result {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            background-color: #f9f9f9;
-        }
-        .error {
-            color: red;
-        }
-    </style>
-    <script src="https://allprivatekeys.com/static/js/priv2address.js"></script>
+    </script>
 </head>
 <body>
     <h1>SHA-256 to Bitcoin Address Generator</h1>
-    <form id="hashForm">
+    <form onsubmit="event.preventDefault(); hashAndGenerate();">
         <label for="wordInput">Enter a word or phrase:</label><br>
-        <input type="text" id="wordInput" placeholder="Enter your word here" required><br>
+        <input type="text" id="wordInput" placeholder="Enter your word here"><br><br>
 
         <label for="iterations">Number of Hash Iterations:</label><br>
-        <input type="number" id="iterations" min="1" placeholder="Enter number of iterations" value="1" required><br>
+        <input type="number" id="iterations" min="1" placeholder="Enter number of iterations"><br><br>
 
         <button type="submit">Generate</button>
     </form>
 
-    <div id="result" class="result"></div>
-
-    <script>
-        async function sha256(input) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(input);
-            const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-            return Array.from(new Uint8Array(hashBuffer))
-                .map(b => b.toString(16).padStart(2, "0"))
-                .join("");
-        }
-
-        document.getElementById("hashForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
-
-            const word = document.getElementById("wordInput").value;
-            const iterations = parseInt(document.getElementById("iterations").value);
-
-            if (!word || iterations < 1) {
-                document.getElementById("result").innerHTML = '<p class="error">Please provide valid input.</p>';
-                return;
-            }
-
-            try {
-                // Step 1: Hash the input word
-                let hash = word;
-                for (let i = 0; i < iterations; i++) {
-                    hash = await sha256(hash);
-                }
-
-                // Convert hash to private key
-                const privateKey = hash.padStart(64, "0");
-
-                // Use priv2address.js to derive addresses
-                const compressedAddress = priv2address(privateKey, true);
-                const uncompressedAddress = priv2address(privateKey, false);
-
-                // Display results
-                document.getElementById("result").innerHTML = `
-                    <p>Private Key (Hex): ${privateKey}</p>
-                    <p>Compressed Address: ${compressedAddress}</p>
-                    <p>Uncompressed Address: ${uncompressedAddress}</p>
-                `;
-            } catch (err) {
-                document.getElementById("result").innerHTML = `<p class="error">Error: ${err.message}</p>`;
-            }
-        });
-    </script>
+    <div id="result" style="margin-top: 20px;"></div>
 </body>
 </html>
