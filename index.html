@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SHA-256 to Bitcoin Address</title>
+    <!-- Updated CDN for bitcoinjs-lib -->
     <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.0/src/index.js"></script>
+    <!-- Include buffer polyfill for the browser -->
+    <script src="https://cdn.jsdelivr.net/npm/buffer@5.7.1/index.js"></script>
     <script>
         async function hashAndGenerate() {
             const word = document.getElementById("wordInput").value;
@@ -25,7 +28,7 @@
 
             // Convert hash to private key
             const privateKeyHex = hash.slice(0, 64); // Take the first 64 characters
-            const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex');
+            const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex'); // Use the Buffer polyfill
 
             // Generate compressed and uncompressed addresses
             const keyPairCompressed = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer, { compressed: true });
