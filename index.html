@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHA-256 to Bitcoin Address</title>
+    <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib/dist/bitcoinjs-lib.min.js"></script>
+    <script>
+        async function hashAndGenerate() {
+            const word = document.getElementById("wordInput").value;
+            const iterations = parseInt(document.getElementById("iterations").value);
+            if (!word || isNaN(iterations) || iterations < 1) {
+                alert("Please enter a valid word and a positive number of iterations.");
+                return;
+            }
+
+            // Perform the hashing
+            let hash = word;
+            for (let i = 0; i < iterations; i++) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(hash);
+                const digest = await crypto.subtle.digest("SHA-256", data);
+                hash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+
+            // Convert hash to private key
+            const privateKeyHex = hash.slice(0, 64); // Take the first 64 characters
+            const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex');
+
+            // Generate compressed and uncompressed addresses
+            const keyPairCompressed = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer, { compressed: true });
+            const keyPairUncompressed = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer, { compressed: false });
+
+            const { address: compressedAddress } = bitcoin.payments.p2pkh({ pubkey: keyPairCompressed.publicKey });
+            const { address: uncompressedAddress } = bitcoin.payments.p2pkh({ pubkey: keyPairUncompressed.publicKey });
+
+            document.getElementById("result").innerHTML = `
+                <p><strong>Private Key (Hex):</strong> ${privateKeyHex}</p>
+                <p><strong>Private Key (WIF - Compressed):</strong> ${keyPairCompressed.toWIF()}</p>
+                <p><strong>Private Key (WIF - Uncompressed):</strong> ${keyPairUncompressed.toWIF()}</p>
+                <p><strong>Compressed Address:</strong> ${compressedAddress}</p>
+                <p><strong>Uncompressed Address:</strong> ${uncompressedAddress}</p>
+            `;
+        }
+    </script>
+</head>
+<body>
+    <h1>SHA-256 to Bitcoin Address Generator</h1>
+    <form onsubmit="event.preventDefault(); hashAndGenerate();">
+        <label for="wordInput">Enter a word or phrase:</label><br>
+        <input type="text" id="wordInput" placeholder="Enter your word here"><br><br>
+
+        <label for="iterations">Number of Hash Iterations:</label><br>
+        <input type="number" id="iterations" min="1" placeholder="Enter number of iterations"><br><br>
+
+        <button type="submit">Generate</button>
+    </form>
+
+    <div id="result" style="margin-top: 20px;"></div>
+</body>
+</html>
