@@ -36,6 +36,9 @@
                 const compressedPublicKey = privateKeyToCompressedPublic(privateKeyHex);
                 const uncompressedPublicKey = privateKeyToPublic(privateKeyHex);
 
+                console.log("Compressed Public Key:", compressedPublicKey);
+                console.log("Uncompressed Public Key:", uncompressedPublicKey);
+
                 const compressedAddress = await publicKeyToAddress(compressedPublicKey);
                 const uncompressedAddress = await publicKeyToAddress(uncompressedPublicKey);
 
@@ -69,10 +72,15 @@
             const publicKeyBytes = hexToBytes(publicKeyHex);
             const sha256Hash = await sha256(publicKeyBytes);
             const ripemd160Hash = ripemd160(sha256Hash);
+            console.log("SHA256 Hash:", sha256Hash);
+            console.log("RIPEMD160 Hash:", ripemd160Hash);
             const networkPrefix = '00'; // Bitcoin main network
             const publicKeyWithPrefix = networkPrefix + ripemd160Hash;
+            console.log("Public Key with Network Prefix:", publicKeyWithPrefix);
             const checksum = await doubleSha256(hexToBytes(publicKeyWithPrefix));
+            console.log("Checksum:", checksum);
             const addressHex = publicKeyWithPrefix + bytesToHex(checksum.slice(0, 4));
+            console.log("Address Hex (before Base58Check):", addressHex);
             return base58(addressHex);
         }
 
