@@ -47,11 +47,10 @@
         <div class="output" id="results"></div>
     </div>
 
-    <script type="module">
-        import { mnemonicToSeedSync, validateMnemonic } from 'https://unpkg.com/bip39@3.1.0/src/index.js';
-        import * as bitcoin from 'https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/0.2.0-1/bitcoinjs-min.js';
-
-        async function generateAddresses() {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/0.2.0-1/bitcoinjs-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bip39@3.0.4/src/index.js"></script>
+    <script>
+        function generateAddresses() {
             const mnemonic = document.getElementById('mnemonic').value.trim();
 
             if (!mnemonic) {
@@ -66,7 +65,7 @@
 
             try {
                 // Validate the mnemonic
-                if (!validateMnemonic(mnemonic)) {
+                if (!bip39.validateMnemonic(mnemonic)) {
                     alert('Invalid mnemonic phrase.');
                     resultsDiv.innerHTML = '<p>Invalid mnemonic phrase.</p>';
                     return;
@@ -74,7 +73,7 @@
                 alert('Mnemonic is valid.');
 
                 // Generate seed and derive addresses
-                const seed = mnemonicToSeedSync(mnemonic);
+                const seed = bip39.mnemonicToSeedSync(mnemonic);
                 alert('Seed generated.');
 
                 const root = bitcoin.HDNode.fromSeedBuffer(seed);
@@ -84,16 +83,7 @@
                 const compressedAddress = keyPair.getAddress();
                 alert('Compressed Address: ' + compressedAddress);
 
-                const uncompressedKeyPair = bitcoin.ECPair.fromPrivateKey(keyPair.keyPair.d.toBuffer(32), {
-                    compressed: false
-                });
-                const uncompressedAddress = bitcoin.Address.fromOutputScript(
-                    bitcoin.Script.fromPubKey(uncompressedKeyPair.pubKey)
-                );
-                alert('Uncompressed Address: ' + uncompressedAddress);
-
-                resultsDiv.innerHTML = `<p>Compressed Address: ${compressedAddress}</p>
-                                        <p>Uncompressed Address: ${uncompressedAddress}</p>`;
+                resultsDiv.innerHTML = `<p>Compressed Address: ${compressedAddress}</p>`;
             } catch (error) {
                 alert('An error occurred: ' + error.message);
                 resultsDiv.innerHTML = '<p>An error occurred while generating addresses.</p>';
