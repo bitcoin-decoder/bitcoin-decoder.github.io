@@ -6,6 +6,7 @@
     <title>Bitcoin Address Generator and Balance Checker</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/0.2.0-1/bitcoinjs-min.js"></script> <!-- Added for WIF support -->
     <script>
         async function checkBalance(address) {
             try {
@@ -139,17 +140,26 @@
             return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        // New function to check the balance for a private key
+        // New function to check the balance for a private key or WIF
         async function privateKeyToBalance() {
-            const privateKey = document.getElementById("privateKeyInput").value;
-            if (!privateKey) {
-                alert("Please enter a private key.");
-                return;
-            }
-
+            const privateKeyInput = document.getElementById("privateKeyInput").value;
+            let privateKeyHex = '';
             try {
-                const compressedPublicKey = privateKeyToCompressedPublic(privateKey);
-                const uncompressedPublicKey = privateKeyToPublic(privateKey);
+                // Check if input is in WIF format and decode it
+                if (privateKeyInput.startsWith('5')) {
+                    const keyPair = bitcoinjsLib.ECPair.fromWIF(privateKeyInput);
+                    privateKeyHex = keyPair.privateKey.toString('hex');
+                } else {
+                    privateKeyHex = privateKeyInput; // Assume it's already in hex format
+                }
+
+                if (!privateKeyHex) {
+                    alert("Please enter a valid private key or WIF.");
+                    return;
+                }
+
+                const compressedPublicKey = privateKeyToCompressedPublic(privateKeyHex);
+                const uncompressedPublicKey = privateKeyToPublic(privateKeyHex);
                 const compressedAddress = await publicKeyToAddress(compressedPublicKey);
                 const uncompressedAddress = await publicKeyToAddress(uncompressedPublicKey);
 
@@ -161,7 +171,7 @@
                 updateBalanceDisplay(compressedAddress, "balance-compressed-privkey");
                 updateBalanceDisplay(uncompressedAddress, "balance-uncompressed-privkey");
             } catch (error) {
-                alert("Invalid private key or error fetching balance.");
+                alert("Invalid private key or WIF format.");
             }
         }
     </script>
@@ -197,11 +207,11 @@
 
     <hr>
 
-    <!-- Private Key to Address/Balances Checker -->
-    <h2>Private Key to Address and Balance Checker</h2>
+    <!-- Private Key to Address/Balances Checker (WIF or Hex) -->
+    <h2>Private Key or WIF to Address and Balance Checker</h2>
     <form onsubmit="event.preventDefault(); privateKeyToBalance();">
-        <label for="privateKeyInput">Enter Private Key (Hex):</label><br>
-        <input type="text" id="privateKeyInput" placeholder="Enter private key here"><br><br>
+        <label for="privateKeyInput">Enter Private Key or WIF:</label><br>
+        <input type="text" id="privateKeyInput" placeholder="Enter private key or WIF here"><br><br>
         <button type="submit">Check Balance</button>
     </form>
     <div id="privkeyResult" style="margin-top: 20px;"></div>
