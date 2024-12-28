@@ -8,34 +8,34 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
     <script>
         async function checkBalanceAndTxCount(address) {
-            try {
-                const response = await fetch(`https://blockstream.info/api/address/${address}`);
-                if (!response.ok) throw new Error("Failed to fetch data.");
-                const data = await response.json();
+    try {
+        const response = await fetch(`https://blockstream.info/api/address/${address}`);
+        if (!response.ok) throw new Error("Failed to fetch data.");
+        const data = await response.json();
 
-                const balance = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
-                const transactionCount = data.tx_count;
+        // Ensure we safely access the data
+        const balance = data.chain_stats ? (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) : 0;
+        const transactionCount = data.chain_stats ? data.chain_stats.tx_count : 0;
 
-                return { balance, transactionCount };
-            } catch (error) {
-                console.error(error);
-                return { balance: "Error fetching balance", transactionCount: "Error fetching transaction count" };
-            }
-        }
+        return { balance, transactionCount };
+    } catch (error) {
+        console.error(error);
+        return { balance: "Error fetching balance", transactionCount: "Error fetching transaction count" };
+    }
+}
 
-        async function updateBalanceAndTxCountDisplay(address, balanceElementId, txCountElementId) {
-            const { balance, transactionCount } = await checkBalanceAndTxCount(address);
+async function updateBalanceAndTxCountDisplay(address, balanceElementId, txCountElementId) {
+    const { balance, transactionCount } = await checkBalanceAndTxCount(address);
 
-            // Update balance display
-            document.getElementById(balanceElementId).innerText = balance === "Error fetching balance"
-                ? balance
-                : `${balance} satoshis`;
+    // Update balance display
+    const balanceDisplay = (balance === "Error fetching balance") ? balance : `${balance} satoshis`;
+    document.getElementById(balanceElementId).innerText = balanceDisplay;
 
-            // Update transaction count display
-            document.getElementById(txCountElementId).innerText = transactionCount === "Error fetching transaction count"
-                ? transactionCount
-                : `${transactionCount} transactions`;
-        }
+    // Update transaction count display
+    const txCountDisplay = (transactionCount === "Error fetching transaction count") ? transactionCount : `${transactionCount} transactions`;
+    document.getElementById(txCountElementId).innerText = txCountDisplay;
+}
+
 
         async function hashAndGenerate() {
             try {
