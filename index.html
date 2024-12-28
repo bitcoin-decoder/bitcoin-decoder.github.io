@@ -179,7 +179,6 @@
                 // Fetch and display balances and transaction counts
                 updateBalanceAndTxCountDisplay(compressedAddress, "balance-compressed", "txcount-compressed");
                 updateBalanceAndTxCountDisplay(uncompressedAddress, "balance-uncompressed", "txcount-uncompressed");
-
             } catch (error) {
                 resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
             }
@@ -187,7 +186,6 @@
 
         function wifToHex(wif) {
             const base58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-            const bytes = [];
             let num = BigInt(0);
             for (let i = 0; i < wif.length; i++) {
                 num = num * 58n + BigInt(base58.indexOf(wif[i]));
@@ -205,7 +203,6 @@
 </head>
 <body>
     <h1>Bitcoin Address Generator and Balance Checker</h1>
-    <!-- Existing Balance Check Section -->
     <div>
         <h2>Check Wallet Balance</h2>
         <form onsubmit="event.preventDefault(); updateBalanceAndTxCountDisplay(document.getElementById('addressInput').value, 'wallet-balance', 'wallet-txcount');">
@@ -217,7 +214,6 @@
         <p><strong>Transaction Count:</strong> <span id="wallet-txcount">---</span></p>
     </div>
     <hr>
-    <!-- Existing Address Generator Section -->
     <h2>SHA-256 to Bitcoin Address Generator</h2>
     <form onsubmit="event.preventDefault(); hashAndGenerate();">
         <label for="wordInput">Enter a word or phrase:</label><br>
@@ -230,7 +226,6 @@
     </form>
     <div id="result" style="margin-top: 20px;"></div>
     <hr>
-    <!-- New Private Key Section -->
     <h2>Private Key to Bitcoin Address</h2>
     <form onsubmit="event.preventDefault(); handlePrivateKeyInput();">
         <label for="privateKeyInput">Enter Private Key (WIF or HEX):</label><br>
