@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC Address Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;\n            margin: auto;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            font-weight: bold;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+        }
+        .output {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BTC Address Generator</h1>
+        <div class="input-group">
+            <label for="mnemonic">Enter Mnemonic Phrase:</label>
+            <input type="text" id="mnemonic" placeholder="Enter your mnemonic phrase">
+        </div>
+        <button onclick="generateAddresses()">Generate BTC Addresses</button>
+        <div class="output" id="results"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/0.2.0-1/bitcoinjs-min.js"></script>
+    <script type="module">
+        import { mnemonicToSeedSync, validateMnemonic } from 'https://cdn.jsdelivr.net/npm/bip39@3.1.0/dist/index.min.js';
+
+        async function generateAddresses() {
+            const mnemonic = document.getElementById('mnemonic').value.trim();
+            if (!mnemonic) {
+                alert('Please enter a mnemonic phrase.');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Generating addresses...</p>';
+
+            try {
+                if (!validateMnemonic(mnemonic)) {
+                    resultsDiv.innerHTML = '<p>Invalid mnemonic phrase.</p>';
+                    return;
+                }
+
+                const seed = mnemonicToSeedSync(mnemonic);
+                const root = bitcoin.HDNode.fromSeedBuffer(seed);
+                const keyPair = root.derivePath("m/44'/0'/0'/0/0");
+
+                const compressedAddress = keyPair.getAddress();
+
+                const uncompressedKeyPair = bitcoin.ECPair.fromPrivateKey(keyPair.keyPair.d.toBuffer(32), {
+                    compressed: false
+                });
+                const uncompressedAddress = bitcoin.Address.fromOutputScript(
+                    bitcoin.Script.fromPubKey(uncompressedKeyPair.pubKey)
+                );
+
+                resultsDiv.innerHTML = `<p>Compressed Address: ${compressedAddress}</p>
+                                        <p>Uncompressed Address: ${uncompressedAddress}</p>
+                                        <p>Fetching balance and transactions...</p>`;
+
+                const compressedData = await fetchAddressData(compressedAddress);
+                const uncompressedData = await fetchAddressData(uncompressedAddress);
+
+                resultsDiv.innerHTML += `<h3>Compressed Address Data:</h3>
+                                         <pre>${JSON.stringify(compressedData, null, 2)}</pre>
+                                         <h3>Uncompressed Address Data:</h3>
+                                         <pre>${JSON.stringify(uncompressedData, null, 2)}</pre>`;
+            } catch (error) {
+                console.error(error);
+                resultsDiv.innerHTML = '<p>An error occurred while generating addresses.</p>';
+            }
+        }
+
+        async function fetchAddressData(address) {
+            const url = `https://blockstream.info/api/address/${address}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch data for ${address}`);
+            }
+            return response.json();
+        }
+    </script>
+</body>
+</html>
