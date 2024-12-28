@@ -43,15 +43,15 @@
             <label for="mnemonic">Enter Mnemonic Phrase:</label>
             <input type="text" id="mnemonic" placeholder="Enter your mnemonic phrase">
         </div>
-        <button id="generate">Generate BTC Addresses</button>
+        <button onclick="generateAddresses()">Generate BTC Addresses</button>
         <div class="output" id="results"></div>
     </div>
 
-    <script type="module">
-        import * as bip39 from 'https://cdn.jsdelivr.net/npm/bip39@3.0.4/src/index.js';
-        import * as bitcoin from 'https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/3.3.2/bitcoinjs.min.js';
-
-        document.getElementById('generate').addEventListener('click', async () => {
+    <!-- Updated Library Links -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/0.2.0-1/bitcoinjs-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bip39@2.5.0/index.min.js"></script>
+    <script>
+        function generateAddresses() {
             const mnemonic = document.getElementById('mnemonic').value.trim();
 
             if (!mnemonic) {
@@ -74,22 +74,22 @@
                 alert('Mnemonic is valid.');
 
                 // Generate seed and derive addresses
-                const seed = await bip39.mnemonicToSeed(mnemonic);
+                const seed = bip39.mnemonicToSeedSync(mnemonic);
                 alert('Seed generated.');
 
-                const root = bitcoin.bip32.fromSeed(seed);
+                const root = bitcoin.HDNode.fromSeedBuffer(seed);
                 alert('HDNode derived.');
 
                 const keyPair = root.derivePath("m/44'/0'/0'/0/0");
-                const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey });
-                alert('Compressed Address: ' + address);
+                const compressedAddress = keyPair.getAddress();
+                alert('Compressed Address: ' + compressedAddress);
 
-                resultsDiv.innerHTML = `<p>Compressed Address: ${address}</p>`;
+                resultsDiv.innerHTML = `<p>Compressed Address: ${compressedAddress}</p>`;
             } catch (error) {
                 alert('An error occurred: ' + error.message);
                 resultsDiv.innerHTML = '<p>An error occurred while generating addresses.</p>';
             }
-        });
+        }
     </script>
 </body>
 </html>
