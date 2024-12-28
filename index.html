@@ -13,8 +13,9 @@
                 if (!response.ok) throw new Error("Failed to fetch data.");
                 const data = await response.json();
 
-                // Ensure we safely access the data
-                const balance = data.chain_stats ? (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) : 0;
+                const balance = data.chain_stats 
+                    ? (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) 
+                    : 0;
                 const transactionCount = data.chain_stats ? data.chain_stats.tx_count : 0;
 
                 return { balance, transactionCount };
@@ -24,74 +25,50 @@
             }
         }
 
-        async function updateBalanceAndTxCountDisplay(address, balanceElementId, txCountElementId) {
-            const { balance, transactionCount } = await checkBalanceAndTxCount(address);
-
-            // Update balance display
-            const balanceDisplay = (balance === "Error fetching balance") ? balance : `${balance} satoshis`;
+        async function updateBalanceAndTxCountDisplay(address, balanceElementId) {
+            const { balance } = await checkBalanceAndTxCount(address);
+            const balanceDisplay = (balance === "Error fetching balance") 
+                ? balance 
+                : `${balance} satoshis`;
             document.getElementById(balanceElementId).innerText = balanceDisplay;
-
-            // Update transaction count display
-            const txCountDisplay = (transactionCount === "Error fetching transaction count") ? transactionCount : `${transactionCount} transactions`;
-            document.getElementById(txCountElementId).innerText = txCountDisplay;
         }
 
         async function hashAndGenerate() {
-            try {
-                const word = document.getElementById("wordInput").value;
-                const iterations = parseInt(document.getElementById("iterations").value);
-                const resultDiv = document.getElementById("result");
+            const word = document.getElementById("wordInput").value;
+            const iterations = parseInt(document.getElementById("iterations").value, 10);
 
-                resultDiv.innerHTML = ""; // Clear previous results
-
-                if (!word || isNaN(iterations) || iterations < 1) {
-                    resultDiv.innerHTML = `<p style="color: red;">Please enter a valid word and a positive number of iterations.</p>`;
-                    return;
-                }
-
-                // Perform the hashing
-                let hash = word;
-                for (let i = 0; i < iterations; i++) {
-                    const encoder = new TextEncoder();
-                    const data = encoder.encode(hash);
-                    const digest = await crypto.subtle.digest("SHA-256", data);
-                    hash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
-                }
-
-                // Convert hash to private key
-                const privateKeyHex = hash.slice(0, 64); // Take the first 64 characters
-
-                // Generate the public key and Bitcoin address
-                const compressedPublicKey = privateKeyToCompressedPublic(privateKeyHex);
-                const uncompressedPublicKey = privateKeyToPublic(privateKeyHex);
-                const compressedAddress = await publicKeyToAddress(compressedPublicKey);
-                const uncompressedAddress = await publicKeyToAddress(uncompressedPublicKey);
-
-                // Display results
-                resultDiv.innerHTML = `
-                    <p><strong>Private Key (Hex):</strong> ${privateKeyHex}</p>
-                    <p><strong>Compressed Address:</strong> ${compressedAddress} <span id="balance-compressed">Loading balance...</span> <span id="txcount-compressed">Loading transactions...</span></p>
-                    <p><strong>Uncompressed Address:</strong> ${uncompressedAddress} <span id="balance-uncompressed">Loading balance...</span> <span id="txcount-uncompressed">Loading transactions...</span></p>
-                `;
-
-                // Fetch and display balances and transaction counts
-                updateBalanceAndTxCountDisplay(compressedAddress, "balance-compressed", "txcount-compressed");
-                updateBalanceAndTxCountDisplay(uncompressedAddress, "balance-uncompressed", "txcount-uncompressed");
-            } catch (error) {
-                document.getElementById("result").innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            if (!word || isNaN(iterations) || iterations < 1) {
+                document.getElementById("result").innerHTML = "Invalid input.";
+                return;
             }
-        }
 
-        function privateKeyToPublic(privateKeyHex) {
-            const ec = new elliptic.ec('secp256k1');
-            const key = ec.keyFromPrivate(privateKeyHex, 'hex');
-            return key.getPublic(false, 'hex'); // Uncompressed public key
+            let hash = word;
+            for (let i = 0; i < iterations; i++) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(hash);
+                const buffer = await crypto.subtle.digest("SHA-256", data);
+                hash = Array.from(new Uint8Array(buffer))
+                    .map((byte) => byte.toString(16).padStart(2, "0"))
+                    .join("");
+            }
+
+            const privateKeyHex = hash.slice(0, 64);
+            const compressedPublicKey = privateKeyToCompressedPublic(privateKeyHex);
+            const compressedAddress = await publicKeyToAddress(compressedPublicKey);
+
+            document.getElementById("result").innerHTML = `
+                <p>Private Key (Hex): ${privateKeyHex}</p>
+                <p>Compressed Address: ${compressedAddress}</p>
+                <p id="balance-compressed">Loading balance...</p>
+            `;
+
+            updateBalanceAndTxCountDisplay(compressedAddress, "balance-compressed");
         }
 
         function privateKeyToCompressedPublic(privateKeyHex) {
             const ec = new elliptic.ec('secp256k1');
             const key = ec.keyFromPrivate(privateKeyHex, 'hex');
-            return key.getPublic(true, 'hex'); // Compressed public key
+            return key.getPublic(true, 'hex');
         }
 
         async function publicKeyToAddress(publicKeyHex) {
@@ -99,7 +76,7 @@
             const sha256Hash = await sha256(publicKeyBytes);
             const ripemd160Hash = ripemd160(sha256Hash);
 
-            const networkPrefix = '00'; // Bitcoin main network
+            const networkPrefix = '00';
             const publicKeyWithPrefix = networkPrefix + ripemd160Hash;
 
             const checksum = await doubleSha256(hexToBytes(publicKeyWithPrefix));
@@ -109,16 +86,44 @@
             return base58Encode(addressHex);
         }
 
-        function base58Encode(hex) {
-            const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-            const leadingZeros = hex.match(/^0+/)?.[0]?.length || 0;
-            let num = BigInt('0x' + hex);
-            let result = '';
-            while (num > 0) {
-                result = alphabet[Number(num % 58n)] + result;
-                num /= 58n;
+        async function handlePrivateKeyInput() {
+            const privateKeyInput = document.getElementById("privateKeyInput").value;
+
+            try {
+                const privateKeyHex = privateKeyInput.startsWith("5")
+                    ? wifToHex(privateKeyInput)
+                    : privateKeyInput;
+
+                const compressedPublicKey = privateKeyToCompressedPublic(privateKeyHex);
+                const compressedAddress = await publicKeyToAddress(compressedPublicKey);
+
+                document.getElementById("privateKeyResult").innerHTML = `
+                    <p>Compressed Address: ${compressedAddress}</p>
+                    <p id="balance-private">Loading balance...</p>
+                `;
+
+                updateBalanceAndTxCountDisplay(compressedAddress, "balance-private");
+            } catch (error) {
+                document.getElementById("privateKeyResult").innerHTML = `
+                    <p style="color: red;">Error: ${error.message}</p>
+                `;
             }
-            return '1'.repeat(leadingZeros / 2) + result;
+        }
+
+        function base58Decode(wif) {
+            const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+            let num = BigInt(0);
+            for (let char of wif) {
+                num = num * 58n + BigInt(alphabet.indexOf(char));
+            }
+            const hex = num.toString(16).padStart(74, "0");
+            return hex.match(/.{2}/g).map((byte) => parseInt(byte, 16));
+        }
+
+        function wifToHex(wif) {
+            const decoded = base58Decode(wif);
+            const privateKey = decoded.slice(1, -4);
+            return privateKey.map((b) => b.toString(16).padStart(2, "0")).join("");
         }
 
         async function sha256(data) {
@@ -138,66 +143,23 @@
         }
 
         function hexToBytes(hex) {
-            const bytes = [];
-            for (let i = 0; i < hex.length; i += 2) {
-                bytes.push(parseInt(hex.substr(i, 2), 16));
-            }
-            return new Uint8Array(bytes);
+            return new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
         }
 
         function bytesToHex(bytes) {
-            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
         }
 
-        // New function to handle private key input
-        async function handlePrivateKeyInput() {
-            const privateKey = document.getElementById('privateKeyInput').value;
-            const resultDiv = document.getElementById('privateKeyResult');
-            resultDiv.innerHTML = ""; // Clear previous results
-
-            if (!privateKey) {
-                resultDiv.innerHTML = "<p style='color: red;'>Please enter a private key.</p>";
-                return;
-            }
-
-            try {
-                const privateKeyHex = privateKey.startsWith('5') ? wifToHex(privateKey) : privateKey;
-
-                // Generate the public key and Bitcoin address
-                const compressedPublicKey = privateKeyToCompressedPublic(privateKeyHex);
-                const uncompressedPublicKey = privateKeyToPublic(privateKeyHex);
-                const compressedAddress = await publicKeyToAddress(compressedPublicKey);
-                const uncompressedAddress = await publicKeyToAddress(uncompressedPublicKey);
-
-                // Display results
-                resultDiv.innerHTML = `
-                    <p><strong>Private Key (Hex):</strong> ${privateKeyHex}</p>
-                    <p><strong>Compressed Address:</strong> ${compressedAddress} <span id="balance-compressed">Loading balance...</span> <span id="txcount-compressed">Loading transactions...</span></p>
-                    <p><strong>Uncompressed Address:</strong> ${uncompressedAddress} <span id="balance-uncompressed">Loading balance...</span> <span id="txcount-uncompressed">Loading transactions...</span></p>
-                `;
-
-                // Fetch and display balances and transaction counts
-                updateBalanceAndTxCountDisplay(compressedAddress, "balance-compressed", "txcount-compressed");
-                updateBalanceAndTxCountDisplay(uncompressedAddress, "balance-uncompressed", "txcount-uncompressed");
-            } catch (error) {
-                resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
-            }
-        }
-
-        function wifToHex(wif) {
-            const base58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-            let num = BigInt(0);
-            for (let i = 0; i < wif.length; i++) {
-                num = num * 58n + BigInt(base58.indexOf(wif[i]));
-            }
-
+        function base58Encode(hex) {
+            const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            const leadingZeros = hex.match(/^0+/)?.[0]?.length || 0;
+            let num = BigInt('0x' + hex);
+            let result = '';
             while (num > 0) {
-                bytes.unshift(Number(num % 256n));
-                num /= 256n;
+                result = alphabet[Number(num % 58n)] + result;
+                num /= 58n;
             }
-
-            // Remove the WIF prefix (0x80) and checksum (last 4 bytes)
-            return bytes.slice(1, -4).map(byte => byte.toString(16).padStart(2, '0')).join('');
+            return '1'.repeat(leadingZeros / 2) + result;
         }
     </script>
 </head>
@@ -205,32 +167,29 @@
     <h1>Bitcoin Address Generator and Balance Checker</h1>
     <div>
         <h2>Check Wallet Balance</h2>
-        <form onsubmit="event.preventDefault(); updateBalanceAndTxCountDisplay(document.getElementById('addressInput').value, 'wallet-balance', 'wallet-txcount');">
+        <form onsubmit="event.preventDefault(); updateBalanceAndTxCountDisplay(document.getElementById('addressInput').value, 'wallet-balance');">
             <label for="addressInput">Enter Bitcoin Address:</label><br>
             <input type="text" id="addressInput" placeholder="Enter Bitcoin address here"><br><br>
             <button type="submit">Check Balance</button>
         </form>
         <p><strong>Balance:</strong> <span id="wallet-balance">---</span></p>
-        <p><strong>Transaction Count:</strong> <span id="wallet-txcount">---</span></p>
     </div>
     <hr>
     <h2>SHA-256 to Bitcoin Address Generator</h2>
     <form onsubmit="event.preventDefault(); hashAndGenerate();">
         <label for="wordInput">Enter a word or phrase:</label><br>
         <input type="text" id="wordInput" placeholder="Enter your word here"><br><br>
-
         <label for="iterations">Number of Hash Iterations:</label><br>
         <input type="number" id="iterations" min="1" placeholder="Enter number of iterations"><br><br>
-
         <button type="submit">Generate</button>
     </form>
     <div id="result" style="margin-top: 20px;"></div>
     <hr>
-    <h2>Private Key to Bitcoin Address</h2>
+    <h2>Private Key to Address Converter</h2>
     <form onsubmit="event.preventDefault(); handlePrivateKeyInput();">
-        <label for="privateKeyInput">Enter Private Key (WIF or HEX):</label><br>
+        <label for="privateKeyInput">Enter Private Key (Hex or WIF):</label><br>
         <input type="text" id="privateKeyInput" placeholder="Enter private key here"><br><br>
-        <button type="submit">Generate Address</button>
+        <button type="submit">Convert</button>
     </form>
     <div id="privateKeyResult" style="margin-top: 20px;"></div>
 </body>
