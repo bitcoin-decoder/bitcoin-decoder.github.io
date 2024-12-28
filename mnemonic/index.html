@@ -10,7 +10,8 @@
             margin: 20px;
         }
         .container {
-            max-width: 600px;\n            margin: auto;
+            max-width: 600px;
+            margin: auto;
         }
         .input-group {
             margin-bottom: 15px;
@@ -46,31 +47,42 @@
         <div class="output" id="results"></div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/0.2.0-1/bitcoinjs-min.js"></script>
     <script type="module">
         import { mnemonicToSeedSync, validateMnemonic } from 'https://cdn.jsdelivr.net/npm/bip39@3.1.0/dist/index.min.js';
+        import * as bitcoin from 'https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/0.2.0-1/bitcoinjs-min.js';
 
         async function generateAddresses() {
             const mnemonic = document.getElementById('mnemonic').value.trim();
+
             if (!mnemonic) {
                 alert('Please enter a mnemonic phrase.');
                 return;
             }
 
+            alert('Mnemonic entered: ' + mnemonic);
+
             const resultsDiv = document.getElementById('results');
             resultsDiv.innerHTML = '<p>Generating addresses...</p>';
 
             try {
+                // Validate the mnemonic
                 if (!validateMnemonic(mnemonic)) {
+                    alert('Invalid mnemonic phrase.');
                     resultsDiv.innerHTML = '<p>Invalid mnemonic phrase.</p>';
                     return;
                 }
+                alert('Mnemonic is valid.');
 
+                // Generate seed and derive addresses
                 const seed = mnemonicToSeedSync(mnemonic);
-                const root = bitcoin.HDNode.fromSeedBuffer(seed);
-                const keyPair = root.derivePath("m/44'/0'/0'/0/0");
+                alert('Seed generated.');
 
+                const root = bitcoin.HDNode.fromSeedBuffer(seed);
+                alert('HDNode derived.');
+
+                const keyPair = root.derivePath("m/44'/0'/0'/0/0");
                 const compressedAddress = keyPair.getAddress();
+                alert('Compressed Address: ' + compressedAddress);
 
                 const uncompressedKeyPair = bitcoin.ECPair.fromPrivateKey(keyPair.keyPair.d.toBuffer(32), {
                     compressed: false
@@ -78,31 +90,14 @@
                 const uncompressedAddress = bitcoin.Address.fromOutputScript(
                     bitcoin.Script.fromPubKey(uncompressedKeyPair.pubKey)
                 );
+                alert('Uncompressed Address: ' + uncompressedAddress);
 
                 resultsDiv.innerHTML = `<p>Compressed Address: ${compressedAddress}</p>
-                                        <p>Uncompressed Address: ${uncompressedAddress}</p>
-                                        <p>Fetching balance and transactions...</p>`;
-
-                const compressedData = await fetchAddressData(compressedAddress);
-                const uncompressedData = await fetchAddressData(uncompressedAddress);
-
-                resultsDiv.innerHTML += `<h3>Compressed Address Data:</h3>
-                                         <pre>${JSON.stringify(compressedData, null, 2)}</pre>
-                                         <h3>Uncompressed Address Data:</h3>
-                                         <pre>${JSON.stringify(uncompressedData, null, 2)}</pre>`;
+                                        <p>Uncompressed Address: ${uncompressedAddress}</p>`;
             } catch (error) {
-                console.error(error);
+                alert('An error occurred: ' + error.message);
                 resultsDiv.innerHTML = '<p>An error occurred while generating addresses.</p>';
             }
-        }
-
-        async function fetchAddressData(address) {
-            const url = `https://blockstream.info/api/address/${address}`;
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch data for ${address}`);
-            }
-            return response.json();
         }
     </script>
 </body>
