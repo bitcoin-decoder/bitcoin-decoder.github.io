@@ -68,73 +68,65 @@
             return publicKey;
         }
 
-        async function publicKeyToAddress(publicKeyHex) {
-            // Perform SHA256 -> RIPEMD160 -> Add network byte -> Double SHA256 for checksum
-            const publicKeyBytes = hexToBytes(publicKeyHex);
-            const sha256Hash = await sha256(publicKeyBytes);
-            const ripemd160Hash = ripemd160(sha256Hash);
+async function publicKeyToAddress(publicKeyHex) {
+    const publicKeyBytes = hexToBytes(publicKeyHex);
+    const sha256Hash = await sha256(publicKeyBytes);
+    const ripemd160Hash = ripemd160(sha256Hash);
 
-            // Alerting hashes
-            alert("SHA256 Hash: " + bytesToHex(sha256Hash));
-            alert("RIPEMD160 Hash: " + ripemd160Hash);
+    const networkPrefix = '00'; // Bitcoin main network
+    const publicKeyWithPrefix = networkPrefix + ripemd160Hash;
 
-            const networkPrefix = '00'; // Bitcoin main network
-            const publicKeyWithPrefix = networkPrefix + ripemd160Hash;
+    // Calculate checksum
+    const checksum = await doubleSha256(hexToBytes(publicKeyWithPrefix));
+    const checksumHex = bytesToHex(checksum.slice(0, 4)); // First 4 bytes of the checksum
 
-            // Alerting public key with prefix
-            alert("Public Key with Network Prefix: " + publicKeyWithPrefix);
+    // Final payload: public key hash with network prefix + checksum
+    const addressHex = publicKeyWithPrefix + checksumHex;
 
-            const checksum = await doubleSha256(hexToBytes(publicKeyWithPrefix));
+    // Encode the payload using Base58Check
+    return base58Encode(addressHex);
+}
 
-            // Alerting checksum
-            alert("Checksum: " + bytesToHex(checksum));
+function base58Encode(hex) {
+    const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    const leadingZeros = hex.match(/^0+/)?.[0]?.length || 0;
+    let num = BigInt('0x' + hex);
+    let result = '';
+    while (num > 0) {
+        result = alphabet[Number(num % 58n)] + result;
+        num /= 58n;
+    }
+    return '1'.repeat(leadingZeros / 2) + result; // Add leading 1s for each leading 00 byte
+}
 
-            const addressHex = publicKeyWithPrefix + bytesToHex(checksum.slice(0, 4));
+function ripemd160(data) {
+    const hash = CryptoJS.RIPEMD160(CryptoJS.enc.Hex.parse(bytesToHex(data)));
+    return hash.toString(CryptoJS.enc.Hex);
+}
 
-            // Alerting final address hex before Base58Check
-            alert("Address Hex (before Base58Check): " + addressHex);
+async function sha256(data) {
+    const hash = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(bytesToHex(data)));
+    return hexToBytes(hash.toString(CryptoJS.enc.Hex));
+}
 
-            return base58(addressHex);
-        }
+async function doubleSha256(data) {
+    const firstHash = await sha256(data);
+    const secondHash = await sha256(firstHash);
+    return secondHash;
+}
 
-        async function sha256(data) {
-            const hash = CryptoJS.SHA256(CryptoJS.enc.Hex.parse(bytesToHex(data)));
-            return hexToBytes(hash.toString(CryptoJS.enc.Hex));
-        }
+function hexToBytes(hex) {
+    const bytes = [];
+    for (let i = 0; i < hex.length; i += 2) {
+        bytes.push(parseInt(hex.substr(i, 2), 16));
+    }
+    return new Uint8Array(bytes);
+}
 
-        function ripemd160(data) {
-            const hash = CryptoJS.RIPEMD160(CryptoJS.SHA256(CryptoJS.enc.Hex.parse(bytesToHex(data))));
-            return hash.toString(CryptoJS.enc.Hex);
-        }
+function bytesToHex(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
-        async function doubleSha256(data) {
-            const firstHash = await sha256(data);
-            const secondHash = await sha256(firstHash);
-            return secondHash;
-        }
-
-        function base58(hex) {
-            const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-            let num = BigInt('0x' + hex);
-            let result = '';
-            while (num > 0) {
-                result = alphabet[Number(num % 58n)] + result;
-                num /= 58n;
-            }
-            return result;
-        }
-
-        function hexToBytes(hex) {
-            let bytes = [];
-            for (let i = 0; i < hex.length; i += 2) {
-                bytes.push(parseInt(hex.substr(i, 2), 16));
-            }
-            return new Uint8Array(bytes);
-        }
-
-        function bytesToHex(bytes) {
-            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        }
     </script>
 </head>
 <body>
