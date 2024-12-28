@@ -7,23 +7,34 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
     <script>
-        async function checkBalance(address) {
+        async function checkBalanceAndTxCount(address) {
             try {
                 const response = await fetch(`https://blockstream.info/api/address/${address}`);
-                if (!response.ok) throw new Error("Failed to fetch balance.");
+                if (!response.ok) throw new Error("Failed to fetch data.");
                 const data = await response.json();
-                return data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
+
+                const balance = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
+                const transactionCount = data.tx_count;
+
+                return { balance, transactionCount };
             } catch (error) {
                 console.error(error);
-                return "Error fetching balance.";
+                return { balance: "Error fetching balance", transactionCount: "Error fetching transaction count" };
             }
         }
 
-        async function updateBalanceDisplay(address, elementId) {
-            const balance = await checkBalance(address);
-            document.getElementById(elementId).innerText = balance === "Error fetching balance."
+        async function updateBalanceAndTxCountDisplay(address, balanceElementId, txCountElementId) {
+            const { balance, transactionCount } = await checkBalanceAndTxCount(address);
+
+            // Update balance display
+            document.getElementById(balanceElementId).innerText = balance === "Error fetching balance"
                 ? balance
                 : `${balance} satoshis`;
+
+            // Update transaction count display
+            document.getElementById(txCountElementId).innerText = transactionCount === "Error fetching transaction count"
+                ? transactionCount
+                : `${transactionCount} transactions`;
         }
 
         async function hashAndGenerate() {
@@ -60,13 +71,13 @@
                 // Display results
                 resultDiv.innerHTML = `
                     <p><strong>Private Key (Hex):</strong> ${privateKeyHex}</p>
-                    <p><strong>Compressed Address:</strong> ${compressedAddress} <span id="balance-compressed">Loading balance...</span></p>
-                    <p><strong>Uncompressed Address:</strong> ${uncompressedAddress} <span id="balance-uncompressed">Loading balance...</span></p>
+                    <p><strong>Compressed Address:</strong> ${compressedAddress} <span id="balance-compressed">Loading balance...</span> <span id="txcount-compressed">Loading transactions...</span></p>
+                    <p><strong>Uncompressed Address:</strong> ${uncompressedAddress} <span id="balance-uncompressed">Loading balance...</span> <span id="txcount-uncompressed">Loading transactions...</span></p>
                 `;
 
-                // Fetch and display balances
-                updateBalanceDisplay(compressedAddress, "balance-compressed");
-                updateBalanceDisplay(uncompressedAddress, "balance-uncompressed");
+                // Fetch and display balances and transaction counts
+                updateBalanceAndTxCountDisplay(compressedAddress, "balance-compressed", "txcount-compressed");
+                updateBalanceAndTxCountDisplay(uncompressedAddress, "balance-uncompressed", "txcount-uncompressed");
             } catch (error) {
                 document.getElementById("result").innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
             }
@@ -144,12 +155,13 @@
     <h1>Bitcoin Address Generator and Balance Checker</h1>
     <div>
         <h2>Check Wallet Balance</h2>
-        <form onsubmit="event.preventDefault(); updateBalanceDisplay(document.getElementById('addressInput').value, 'wallet-balance');">
+        <form onsubmit="event.preventDefault(); updateBalanceAndTxCountDisplay(document.getElementById('addressInput').value, 'wallet-balance', 'wallet-txcount');">
             <label for="addressInput">Enter Bitcoin Address:</label><br>
             <input type="text" id="addressInput" placeholder="Enter Bitcoin address here"><br><br>
             <button type="submit">Check Balance</button>
         </form>
         <p><strong>Balance:</strong> <span id="wallet-balance">---</span></p>
+        <p><strong>Transaction Count:</strong> <span id="wallet-txcount">---</span></p>
     </div>
     <hr>
     <h2>SHA-256 to Bitcoin Address Generator</h2>
