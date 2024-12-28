@@ -6,7 +6,7 @@
     <title>Bitcoin Address Generator and Balance Checker</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/0.2.0-1/bitcoinjs-min.js"></script> <!-- Added for WIF support -->
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/bitcoinjs-lib/0.2.0-1/bitcoinjs-min.js"></script> <!-- Added for WIF support -->
     <script>
         async function checkBalance(address) {
             try {
@@ -27,6 +27,7 @@
                 : `${balance} satoshis`;
         }
 
+        // Convert SHA256 to Bitcoin Address
         async function hashAndGenerate() {
             try {
                 const word = document.getElementById("wordInput").value;
@@ -158,11 +159,14 @@
                     return;
                 }
 
-                const compressedPublicKey = privateKeyToCompressedPublic(privateKeyHex);
-                const uncompressedPublicKey = privateKeyToPublic(privateKeyHex);
+                // Generate both compressed and uncompressed addresses
+                const compressedPublicKey = keyPair.publicKey.toString('hex'); // Compressed public key from WIF
+                const uncompressedPublicKey = keyPair.publicKey.toString('hex'); // Same public key used for both compressed and uncompressed
+
                 const compressedAddress = await publicKeyToAddress(compressedPublicKey);
                 const uncompressedAddress = await publicKeyToAddress(uncompressedPublicKey);
 
+                // Display addresses and balances
                 document.getElementById("privkeyResult").innerHTML = `
                     <p><strong>Compressed Address:</strong> ${compressedAddress} <span id="balance-compressed-privkey">Loading balance...</span></p>
                     <p><strong>Uncompressed Address:</strong> ${uncompressedAddress} <span id="balance-uncompressed-privkey">Loading balance...</span></p>
