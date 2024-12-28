@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bitcoin Address Generator and Balance Checker</title>
+    <title>Bitcoin Tools</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bip39@3.0.4/dist/index.min.js"></script>
     <script>
         async function checkBalance(address) {
             try {
@@ -26,6 +27,23 @@
                 : `${balance} satoshis`;
         }
 
+        async function checkWalletBalance() {
+            const address = document.getElementById("walletAddressInput").value;
+            const resultDiv = document.getElementById("walletBalanceResult");
+
+            if (!address || address.length < 26 || address.length > 35) {
+                resultDiv.innerHTML = `<p style="color: red;">Please enter a valid Bitcoin address.</p>`;
+                return;
+            }
+
+            const balance = await checkBalance(address);
+            resultDiv.innerHTML = `<p><strong>Balance:</strong> ${
+                balance === "Error fetching balance."
+                    ? balance
+                    : `${balance} satoshis`
+            }</p>`;
+        }
+
         async function hashAndGenerate() {
             try {
                 const word = document.getElementById("wordInput").value;
@@ -39,7 +57,6 @@
                     return;
                 }
 
-                // Perform the hashing
                 let hash = word;
                 for (let i = 0; i < iterations; i++) {
                     const encoder = new TextEncoder();
@@ -48,25 +65,21 @@
                     hash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
                 }
 
-                // Convert hash to private key
-                const privateKeyHex = hash.slice(0, 64); // Take the first 64 characters
-
-                // Generate the public key and Bitcoin address
+                const privateKeyHex = hash.slice(0, 64);
                 const compressedPublicKey = privateKeyToCompressedPublic(privateKeyHex);
                 const uncompressedPublicKey = privateKeyToPublic(privateKeyHex);
+
                 const compressedAddress = await publicKeyToAddress(compressedPublicKey);
                 const uncompressedAddress = await publicKeyToAddress(uncompressedPublicKey);
 
-                // Display results
                 resultDiv.innerHTML = `
                     <p><strong>Private Key (Hex):</strong> ${privateKeyHex}</p>
-                    <p><strong>Compressed Address:</strong> ${compressedAddress} <span id="balance-compressed">Loading balance...</span></p>
-                    <p><strong>Uncompressed Address:</strong> ${uncompressedAddress} <span id="balance-uncompressed">Loading balance...</span></p>
+                    <p><strong>Compressed Address:</strong> ${compressedAddress} (<span id="compressedBalance"></span>)</p>
+                    <p><strong>Uncompressed Address:</strong> ${uncompressedAddress} (<span id="uncompressedBalance"></span>)</p>
                 `;
 
-                // Fetch and display balances
-                updateBalanceDisplay(compressedAddress, "balance-compressed");
-                updateBalanceDisplay(uncompressedAddress, "balance-uncompressed");
+                updateBalanceDisplay(compressedAddress, "compressedBalance");
+                updateBalanceDisplay(uncompressedAddress, "uncompressedBalance");
             } catch (error) {
                 document.getElementById("result").innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
             }
@@ -75,13 +88,13 @@
         function privateKeyToPublic(privateKeyHex) {
             const ec = new elliptic.ec('secp256k1');
             const key = ec.keyFromPrivate(privateKeyHex, 'hex');
-            return key.getPublic(false, 'hex'); // Uncompressed public key
+            return key.getPublic(false, 'hex'); // Uncompressed public key (0x04 prefix)
         }
 
         function privateKeyToCompressedPublic(privateKeyHex) {
             const ec = new elliptic.ec('secp256k1');
             const key = ec.keyFromPrivate(privateKeyHex, 'hex');
-            return key.getPublic(true, 'hex'); // Compressed public key
+            return key.getPublic(true, 'hex'); // Compressed public key (0x02/0x03 prefix)
         }
 
         async function publicKeyToAddress(publicKeyHex) {
@@ -89,26 +102,21 @@
             const sha256Hash = await sha256(publicKeyBytes);
             const ripemd160Hash = ripemd160(sha256Hash);
 
-            const networkPrefix = '00'; // Bitcoin main network
+            const networkPrefix = '00';
             const publicKeyWithPrefix = networkPrefix + ripemd160Hash;
 
             const checksum = await doubleSha256(hexToBytes(publicKeyWithPrefix));
-            const checksumHex = bytesToHex(checksum.slice(0, 4));
+            const addressHex = publicKeyWithPrefix + bytesToHex(checksum.slice(0, 4));
 
-            const addressHex = publicKeyWithPrefix + checksumHex;
-            return base58Encode(addressHex);
+            return base58(addressHex);
         }
 
-        function base58Encode(hex) {
-            const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-            const leadingZeros = hex.match(/^0+/)?.[0]?.length || 0;
-            let num = BigInt('0x' + hex);
-            let result = '';
-            while (num > 0) {
-                result = alphabet[Number(num % 58n)] + result;
-                num /= 58n;
-            }
-            return '1'.repeat(leadingZeros / 2) + result;
+        async function privateKeyToAddresses() {
+            // Implement the private key to address generation and balance checking here.
+        }
+
+        async function mnemonicToAddresses() {
+            // Implement the mnemonic to address generation and balance checking here.
         }
 
         async function sha256(data) {
@@ -127,8 +135,19 @@
             return secondHash;
         }
 
+        function base58(hex) {
+            const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            let num = BigInt('0x' + hex);
+            let result = '';
+            while (num > 0) {
+                result = alphabet[Number(num % 58n)] + result;
+                num /= 58n;
+            }
+            return result;
+        }
+
         function hexToBytes(hex) {
-            const bytes = [];
+            let bytes = [];
             for (let i = 0; i < hex.length; i += 2) {
                 bytes.push(parseInt(hex.substr(i, 2), 16));
             }
@@ -141,27 +160,40 @@
     </script>
 </head>
 <body>
-    <h1>Bitcoin Address Generator and Balance Checker</h1>
-    <div>
-        <h2>Check Wallet Balance</h2>
-        <form onsubmit="event.preventDefault(); updateBalanceDisplay(document.getElementById('addressInput').value, 'wallet-balance');">
-            <label for="addressInput">Enter Bitcoin Address:</label><br>
-            <input type="text" id="addressInput" placeholder="Enter Bitcoin address here"><br><br>
-            <button type="submit">Check Balance</button>
-        </form>
-        <p><strong>Balance:</strong> <span id="wallet-balance">---</span></p>
-    </div>
-    <hr>
-    <h2>SHA-256 to Bitcoin Address Generator</h2>
+    <h1>Bitcoin Tools</h1>
+
+    <h2>Wallet Balance Checker</h2>
+    <form onsubmit="event.preventDefault(); checkWalletBalance();">
+        <label for="walletAddressInput">Enter Bitcoin Address:</label><br>
+        <input type="text" id="walletAddressInput" placeholder="e.g., 1A1zP1..."><br><br>
+        <button type="submit">Check Balance</button>
+    </form>
+    <div id="walletBalanceResult"></div>
+
+    <h2>SHA-256 to Bitcoin Address</h2>
     <form onsubmit="event.preventDefault(); hashAndGenerate();">
         <label for="wordInput">Enter a word or phrase:</label><br>
-        <input type="text" id="wordInput" placeholder="Enter your word here"><br><br>
-
+        <input type="text" id="wordInput"><br><br>
         <label for="iterations">Number of Hash Iterations:</label><br>
-        <input type="number" id="iterations" min="1" placeholder="Enter number of iterations"><br><br>
-
+        <input type="number" id="iterations" min="1"><br><br>
         <button type="submit">Generate</button>
     </form>
-    <div id="result" style="margin-top: 20px;"></div>
+    <div id="result"></div>
+
+    <h2>Private Key to Bitcoin Addresses</h2>
+    <form onsubmit="event.preventDefault(); privateKeyToAddresses();">
+        <label for="privateKeyInput">Enter Private Key:</label><br>
+        <input type="text" id="privateKeyInput"><br><br>
+        <button type="submit">Generate</button>
+    </form>
+    <div id="privateKeyResult"></div>
+
+    <h2>Mnemonic Phrase to Bitcoin Addresses</h2>
+    <form onsubmit="event.preventDefault(); mnemonicToAddresses();">
+        <label for="mnemonicInput">Enter Mnemonic Phrase:</label><br>
+        <input type="text" id="mnemonicInput"><br><br>
+        <button type="submit">Generate</button>
+    </form>
+    <div id="mnemonicResult"></div>
 </body>
 </html>
