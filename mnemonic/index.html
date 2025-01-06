@@ -1,95 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BTC Address Generator</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .container {
-            max-width: 600px;
-            margin: auto;
-        }
-        .input-group {
-            margin-bottom: 15px;
-        }
-        label {
-            font-weight: bold;
-        }
-        input, button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 5px;
-        }
-        .output {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        pre {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bitcoin Address Generator</title>
+  <!-- Load bitcoinjs-lib from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js"></script>
+  <!-- Load bip39 from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/bip39@3.1.0/src/index.min.js"></script>
+  <!-- Load bip32 from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/bip32-lib@0.0.2/lib/bip32.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>BTC Address Generator</h1>
-        <div class="input-group">
-            <label for="mnemonic">Enter Mnemonic Phrase:</label>
-            <input type="text" id="mnemonic" placeholder="Enter your mnemonic phrase">
-        </div>
-        <button onclick="generateAddresses()">Generate BTC Addresses</button>
-        <div class="output" id="results"></div>
-    </div>
+  <h1>Bitcoin Address Generator</h1>
+  <button onclick="generate()">Generate</button>
+  <div id="output"></div>
 
-    <!-- Updated Library Links -->
-    <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib-bi@2.0.0-pre/src/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scorum/bip39@2.5.0/index.min.js"></script>
-    <script>
-        function generateAddresses() {
-            const mnemonic = document.getElementById('mnemonic').value.trim();
+  <script>
+    async function fetchBalance(address) {
+      try {
+        const response = await fetch(`https://blockchain.info/rawaddr/${address}?cors=true`);
+        if (!response.ok) throw new Error("Failed to fetch data");
+        const data = await response.json();
+        return { balance: data.final_balance / 1e8, txCount: data.n_tx };
+      } catch {
+        return { balance: "Error fetching", txCount: "Error fetching" };
+      }
+    }
 
-            if (!mnemonic) {
-                alert('Please enter a mnemonic phrase.');
-                return;
-            }
+    async function generate() {
+      const output = document.getElementById('output');
+      output.innerHTML = "Generating...";
 
-            alert('Mnemonic entered: ' + mnemonic);
+      // Step 1: Generate mnemonic phrase
+      const mnemonic = bip39.generateMnemonic();
+      const seed = await bip39.mnemonicToSeed(mnemonic);
+      const root = bip32.fromSeed(seed);
 
-            const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = '<p>Generating addresses...</p>';
+      // Derive path m/44'/0'/0'/0/0 (BIP44 standard for Bitcoin)
+      const path = "m/44'/0'/0'/0/0";
+      const child = root.derivePath(path);
 
-            try {
-                // Validate the mnemonic
-                if (!bip39.validateMnemonic(mnemonic)) {
-                    alert('Invalid mnemonic phrase.');
-                    resultsDiv.innerHTML = '<p>Invalid mnemonic phrase.</p>';
-                    return;
-                }
-                alert('Mnemonic is valid.');
+      // Private key
+      const privateKey = child.privateKey.toString('hex');
 
-                // Generate seed and derive addresses
-                const seed = bip39.mnemonicToSeedSync(mnemonic);
-                alert('Seed generated.');
+      // Compressed address
+      const { address: compressedAddress } = bitcoin.payments.p2pkh({
+        pubkey: child.publicKey,
+      });
 
-                const root = bitcoin.HDNode.fromSeedBuffer(seed);
-                alert('HDNode derived.');
+      // Uncompressed public key
+      const uncompressedPublicKey = bitcoin.ECPair.fromPrivateKey(child.privateKey, { compressed: false }).publicKey;
 
-                const keyPair = root.derivePath("m/44'/0'/0'/0/0");
-                const compressedAddress = keyPair.getAddress();
-                alert('Compressed Address: ' + compressedAddress);
+      // Uncompressed address
+      const { address: uncompressedAddress } = bitcoin.payments.p2pkh({
+        pubkey: uncompressedPublicKey,
+      });
 
-                resultsDiv.innerHTML = `<p>Compressed Address: ${compressedAddress}</p>`;
-            } catch (error) {
-                alert('An error occurred: ' + error.message);
-                resultsDiv.innerHTML = '<p>An error occurred while generating addresses.</p>';
-            }
-        }
-    </script>
+      // Fetch balances
+      const compressedData = await fetchBalance(compressedAddress);
+      const uncompressedData = await fetchBalance(uncompressedAddress);
+
+      // Output results
+      output.innerHTML = `
+        <p><strong>Mnemonic Phrase:</strong> ${mnemonic}</p>
+        <p><strong>Private Key:</strong> ${privateKey}</p>
+        <p><strong>Compressed Address:</strong> ${compressedAddress}</p>
+        <p><strong>Compressed Address Balance:</strong> ${compressedData.balance} BTC</p>
+        <p><strong>Compressed Address TX Count:</strong> ${compressedData.txCount}</p>
+        <p><strong>Uncompressed Address:</strong> ${uncompressedAddress}</p>
+        <p><strong>Uncompressed Address Balance:</strong> ${uncompressedData.balance} BTC</p>
+        <p><strong>Uncompressed Address TX Count:</strong> ${uncompressedData.txCount}</p>
+      `;
+    }
+  </script>
 </body>
 </html>
