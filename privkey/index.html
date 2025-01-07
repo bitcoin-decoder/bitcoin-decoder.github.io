@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Address Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bs58@1.0.0/lib/bs58.js"></script>
+</head>
+<body>
+    <h1>Bitcoin Address Generator</h1>
+    <p>Enter a private key (Hex or WIF):</p>
+    <input type="text" id="privateKeyInput" placeholder="Enter private key" style="width: 400px;">
+    <button onclick="generateAddresses()">Generate Addresses</button>
+    <div id="output"></div>
+
+    <script>
+        async function generateAddresses() {
+            const input = document.getElementById("privateKeyInput").value.trim();
+            const outputDiv = document.getElementById("output");
+            outputDiv.innerHTML = "";
+
+            try {
+                // Parse the private key
+                let privateKey;
+                let keyPair;
+
+                if (/^[5KL][1-9A-HJ-NP-Za-km-z]{50,51}$/.test(input)) {
+                    // WIF format
+                    keyPair = bitcoin.ECPair.fromWIF(input);
+                } else if (/^[a-fA-F0-9]{64}$/.test(input)) {
+                    // Hex format
+                    keyPair = bitcoin.ECPair.fromPrivateKey(Buffer.from(input, "hex"));
+                } else {
+                    throw new Error("Invalid private key format");
+                }
+
+                // Generate compressed and uncompressed key pairs
+                const compressedKeyPair = bitcoin.ECPair.fromPrivateKey(keyPair.privateKey, { compressed: true });
+                const uncompressedKeyPair = bitcoin.ECPair.fromPrivateKey(keyPair.privateKey, { compressed: false });
+
+                // Derive addresses
+                const compressedAddress = bitcoin.payments.p2pkh({ pubkey: compressedKeyPair.publicKey }).address;
+                const uncompressedAddress = bitcoin.payments.p2pkh({ pubkey: uncompressedKeyPair.publicKey }).address;
+
+                outputDiv.innerHTML = `
+                    <p><strong>Compressed Address:</strong> ${compressedAddress}</p>
+                    <p><strong>Uncompressed Address:</strong> ${uncompressedAddress}</p>
+                    <p>Fetching balances...</p>
+                `;
+
+                // Fetch balances and transaction counts
+                const [compressedData, uncompressedData] = await Promise.all([
+                    fetch(`https://blockstream.info/api/address/${compressedAddress}`).then(res => res.json()),
+                    fetch(`https://blockstream.info/api/address/${uncompressedAddress}`).then(res => res.json())
+                ]);
+
+                outputDiv.innerHTML += `
+                    <h3>Compressed Address Info:</h3>
+                    <p>Balance: ${(compressedData.chain_stats.funded_txo_sum - compressedData.chain_stats.spent_txo_sum) / 1e8} BTC</p>
+                    <p>Transaction Count: ${compressedData.chain_stats.tx_count}</p>
+
+                    <h3>Uncompressed Address Info:</h3>
+                    <p>Balance: ${(uncompressedData.chain_stats.funded_txo_sum - uncompressedData.chain_stats.spent_txo_sum) / 1e8} BTC</p>
+                    <p>Transaction Count: ${uncompressedData.chain_stats.tx_count}</p>
+                `;
+            } catch (error) {
+                outputDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
