@@ -6,17 +6,16 @@
     <title>Search & Analyze</title>
 </head>
 <body>
-    <h1>Funny Word Search & Analyze</h1>
+    <h1>Wallet Address Search & Analyze</h1>
 
     <!-- Input box for the search query -->
     <label for="searchQuery">Enter your search query:</label>
-    <input type="text" id="searchQuery" placeholder="e.g., banana dinosaur spaghetti" style="width: 300px;" />
+    <input type="text" id="searchQuery" placeholder="e.g., crypto wallet addresses" style="width: 300px;" />
     <button id="searchButton">Search</button>
 
     <h2>Results</h2>
     <div id="results"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
     <script>
         // Function to perform a DuckDuckGo search via API
         async function searchDuckDuckGo(query) {
@@ -31,40 +30,37 @@
             }
         }
 
-        // Function to analyze image text using Tesseract.js
-        async function analyzeImage(url) {
-            try {
-                const { data: { text } } = await Tesseract.recognize(url, 'eng');
-                return text;
-            } catch (error) {
-                console.error('Error analyzing image:', error);
-                return '';
-            }
+        // Function to analyze wallet addresses in text
+        function findWalletAddresses(text) {
+            const walletPatterns = [
+                /\b0x[a-fA-F0-9]{40}\b/g, // Ethereum wallet addresses
+                /\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b/g, // Bitcoin wallet addresses
+                /\b[L3][a-km-zA-HJ-NP-Z1-9]{26,33}\b/g, // Litecoin wallet addresses
+                /\b[9A-HJ-NP-Za-km-z]{81}\b/g // IOTA wallet addresses
+            ];
+
+            return walletPatterns.flatMap(pattern => text.match(pattern) || []);
         }
 
-        // Function to process search results and extract text or funny phrases
+        // Function to process search results and extract wallet addresses
         async function processResults(results) {
             const resultsDiv = document.getElementById('results');
             resultsDiv.innerHTML = ''; // Clear previous results
 
             for (const result of results) {
-                if (result.endsWith('.jpg') || result.endsWith('.png')) {
-                    // Analyze image URLs
-                    const extractedText = await analyzeImage(result);
-                    const funnyPhrases = findFunnySequences(extractedText);
-                    resultsDiv.innerHTML += `<h3>Image: <a href="${result}" target="_blank">${result}</a></h3><p>${funnyPhrases.join('<br>')}</p>`;
-                } else {
-                    // List non-image URLs
-                    resultsDiv.innerHTML += `<h3>Website: <a href="${result}" target="_blank">${result}</a></h3>`;
+                if (result.endsWith('.html') || result.startsWith('http')) {
+                    try {
+                        const response = await fetch(result);
+                        const htmlText = await response.text();
+                        const walletAddresses = findWalletAddresses(htmlText);
+                        if (walletAddresses.length > 0) {
+                            resultsDiv.innerHTML += `<h3>Website: <a href="${result}" target="_blank">${result}</a></h3><p>Wallet Addresses Found:</p><ul>${walletAddresses.map(addr => `<li>${addr}</li>`).join('')}</ul>`;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching or processing URL:', error);
+                    }
                 }
             }
-        }
-
-        // Function to find funny sequences in text
-        function findFunnySequences(text) {
-            const sentences = text.match(/\b(\w+\s+){4}\w+\b/g) || [];
-            const funnyWords = ['banana', 'pickle', 'unicorn', 'spaghetti', 'dinosaur']; // Example funny keywords
-            return sentences.filter(sentence => funnyWords.some(word => sentence.includes(word)));
         }
 
         // Event listener for the search button
