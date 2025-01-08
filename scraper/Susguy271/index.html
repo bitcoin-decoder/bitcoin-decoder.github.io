@@ -28,17 +28,27 @@
             return walletPatterns.flatMap(pattern => text.match(pattern) || []);
         }
 
-        // Function to search StackExchange
-        async function searchStackExchange(query) {
-            const apiUrl = `https://api.stackexchange.com/2.4/search/advanced?order=desc&sort=relevance&site=bitcoin&q=${encodeURIComponent(query)}`;
+        // Function to search a single page of StackExchange results
+        async function searchStackExchangePage(query, page) {
+            const apiUrl = `https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&site=bitcoin&q=${encodeURIComponent(query)}&page=${page}`;
             try {
                 const response = await fetch(apiUrl);
                 const data = await response.json();
                 return data.items || [];
             } catch (error) {
-                console.error('Error fetching from StackExchange:', error);
+                console.error(`Error fetching page ${page}:`, error);
                 return [];
             }
+        }
+
+        // Function to search multiple pages (1-10)
+        async function searchStackExchange(query) {
+            let allResults = [];
+            for (let page = 1; page <= 10; page++) {
+                const pageResults = await searchStackExchangePage(query, page);
+                allResults = allResults.concat(pageResults);
+            }
+            return allResults;
         }
 
         // Process and display search results
