@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vanity Bitcoin Address Generator</title>
-    <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.0"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,7 +12,7 @@
             padding: 20px;
             background-color: #f9f9f9;
         }
-        input, button {
+        input, button, label {
             margin: 10px 0;
             padding: 10px;
             font-size: 16px;
@@ -33,6 +33,9 @@
     <h1>Vanity Bitcoin Address Generator</h1>
     <p>Enter a prefix for your Bitcoin address:</p>
     <input type="text" id="prefix" placeholder="e.g., 1FUN">
+    <label>
+        <input type="checkbox" id="caseSensitive"> Case Sensitive
+    </label>
     <button id="generateButton">Generate</button>
 
     <div class="output" id="output"></div>
@@ -43,6 +46,7 @@
 
         async function generateVanityAddress() {
             const prefix = document.getElementById('prefix').value;
+            const caseSensitive = document.getElementById('caseSensitive').checked;
             const output = document.getElementById('output');
             const errorDisplay = document.getElementById('error');
 
@@ -57,6 +61,11 @@
             output.innerText = "Generating... Please wait.";
 
             const bitcoin = window.bitcoin;
+            if (!bitcoin) {
+                errorDisplay.innerText = "BitcoinJS library failed to load.";
+                return;
+            }
+
             let keyPair, address;
 
             const start = performance.now();
@@ -67,7 +76,7 @@
                     attempts++;
                     keyPair = bitcoin.ECPair.makeRandom();
                     address = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey }).address;
-                } while (!address.startsWith(prefix));
+                } while (!matchesPrefix(address, prefix, caseSensitive));
 
                 const elapsed = ((performance.now() - start) / 1000).toFixed(2);
 
@@ -77,11 +86,25 @@
                     <p><strong>Private Key (WIF):</strong> ${keyPair.toWIF()}</p>
                     <p><strong>Attempts:</strong> ${attempts}</p>
                     <p><strong>Time Taken:</strong> ${elapsed} seconds</p>
+                    <p><strong>Estimated Time:</strong> ~${calculateEstimate(prefix.length, caseSensitive)} seconds per match</p>
                 `;
             } catch (error) {
                 output.innerText = "";
                 errorDisplay.innerText = "An error occurred: " + error.message;
             }
+        }
+
+        function matchesPrefix(address, prefix, caseSensitive) {
+            if (caseSensitive) {
+                return address.startsWith(prefix);
+            } else {
+                return address.toLowerCase().startsWith(prefix.toLowerCase());
+            }
+        }
+
+        function calculateEstimate(prefixLength, caseSensitive) {
+            const charsetSize = caseSensitive ? 58 : 36; // Base58 or Base36 depending on case sensitivity
+            return (Math.pow(charsetSize, prefixLength - 1) / 100000).toFixed(2); // Estimate based on ~100,000 addresses/sec
         }
     </script>
 </body>
