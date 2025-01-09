@@ -23,6 +23,10 @@
             background: #eef;
             border: 1px solid #ccd;
         }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -32,6 +36,7 @@
     <button id="generateButton">Generate</button>
 
     <div class="output" id="output"></div>
+    <div class="error" id="error"></div>
 
     <script>
         document.getElementById('generateButton').addEventListener('click', generateVanityAddress);
@@ -39,9 +44,13 @@
         async function generateVanityAddress() {
             const prefix = document.getElementById('prefix').value;
             const output = document.getElementById('output');
+            const errorDisplay = document.getElementById('error');
+
+            errorDisplay.innerText = "";
 
             if (!prefix || !prefix.startsWith('1')) {
-                output.innerText = "Error: Prefix must start with '1'.";
+                output.innerText = "";
+                errorDisplay.innerText = "Error: Prefix must start with '1'.";
                 return;
             }
 
@@ -70,8 +79,8 @@
                     <p><strong>Time Taken:</strong> ${elapsed} seconds</p>
                 `;
             } catch (error) {
-                output.innerText = "An error occurred during address generation. Please try again.";
-                console.error("Error details:", error);
+                output.innerText = "";
+                errorDisplay.innerText = "An error occurred: " + error.message;
             }
         }
     </script>
