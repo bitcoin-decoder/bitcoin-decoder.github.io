@@ -29,11 +29,13 @@
     <h1>Vanity Bitcoin Address Generator</h1>
     <p>Enter a prefix for your Bitcoin address:</p>
     <input type="text" id="prefix" placeholder="e.g., 1FUN">
-    <button onclick="generateVanityAddress()">Generate</button>
+    <button id="generateButton">Generate</button>
 
     <div class="output" id="output"></div>
 
     <script>
+        document.getElementById('generateButton').addEventListener('click', generateVanityAddress);
+
         async function generateVanityAddress() {
             const prefix = document.getElementById('prefix').value;
             const output = document.getElementById('output');
@@ -46,26 +48,31 @@
             output.innerText = "Generating... Please wait.";
 
             const bitcoin = window.bitcoin;
-            let keyPair, { address };
+            let keyPair, address;
 
             const start = performance.now();
             let attempts = 0;
 
-            do {
-                attempts++;
-                keyPair = bitcoin.ECPair.makeRandom();
-                address = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey }).address;
-            } while (!address.startsWith(prefix));
+            try {
+                do {
+                    attempts++;
+                    keyPair = bitcoin.ECPair.makeRandom();
+                    address = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey }).address;
+                } while (!address.startsWith(prefix));
 
-            const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+                const elapsed = ((performance.now() - start) / 1000).toFixed(2);
 
-            output.innerHTML = `
-                <p><strong>Vanity Address Found:</strong></p>
-                <p><strong>Address:</strong> ${address}</p>
-                <p><strong>Private Key (WIF):</strong> ${keyPair.toWIF()}</p>
-                <p><strong>Attempts:</strong> ${attempts}</p>
-                <p><strong>Time Taken:</strong> ${elapsed} seconds</p>
-            `;
+                output.innerHTML = `
+                    <p><strong>Vanity Address Found:</strong></p>
+                    <p><strong>Address:</strong> ${address}</p>
+                    <p><strong>Private Key (WIF):</strong> ${keyPair.toWIF()}</p>
+                    <p><strong>Attempts:</strong> ${attempts}</p>
+                    <p><strong>Time Taken:</strong> ${elapsed} seconds</p>
+                `;
+            } catch (error) {
+                output.innerText = "An error occurred during address generation. Please try again.";
+                console.error(error);
+            }
         }
     </script>
 </body>
