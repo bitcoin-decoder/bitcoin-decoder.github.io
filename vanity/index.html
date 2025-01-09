@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vanity Bitcoin Address Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.0.0"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        input, button {
+            margin: 10px 0;
+            padding: 10px;
+            font-size: 16px;
+        }
+        .output {
+            margin-top: 20px;
+            padding: 10px;
+            background: #eef;
+            border: 1px solid #ccd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Vanity Bitcoin Address Generator</h1>
+    <p>Enter a prefix for your Bitcoin address:</p>
+    <input type="text" id="prefix" placeholder="e.g., 1FUN">
+    <button onclick="generateVanityAddress()">Generate</button>
+
+    <div class="output" id="output"></div>
+
+    <script>
+        async function generateVanityAddress() {
+            const prefix = document.getElementById('prefix').value;
+            const output = document.getElementById('output');
+
+            if (!prefix || !prefix.startsWith('1')) {
+                output.innerText = "Error: Prefix must start with '1'.";
+                return;
+            }
+
+            output.innerText = "Generating... Please wait.";
+
+            const bitcoin = window.bitcoin;
+            let keyPair, { address };
+
+            const start = performance.now();
+            let attempts = 0;
+
+            do {
+                attempts++;
+                keyPair = bitcoin.ECPair.makeRandom();
+                address = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey }).address;
+            } while (!address.startsWith(prefix));
+
+            const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+
+            output.innerHTML = `
+                <p><strong>Vanity Address Found:</strong></p>
+                <p><strong>Address:</strong> ${address}</p>
+                <p><strong>Private Key (WIF):</strong> ${keyPair.toWIF()}</p>
+                <p><strong>Attempts:</strong> ${attempts}</p>
+                <p><strong>Time Taken:</strong> ${elapsed} seconds</p>
+            `;
+        }
+    </script>
+</body>
+</html>
