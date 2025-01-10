@@ -8,7 +8,7 @@
         // Load BitcoinJS from an alternative CDN
         (function() {
             const script = document.createElement('script');
-            script.src = "https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js";
+            script.src = "https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.7/src/index.min.js";
             script.crossOrigin = "anonymous";
             script.onload = () => {
                 if (typeof window['bitcoinjs-lib'] !== "undefined") {
