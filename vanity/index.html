@@ -11,7 +11,13 @@
             script.src = "https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js";
             script.crossOrigin = "anonymous";
             script.onload = () => {
-                window.bitcoin = window['bitcoinjs-lib']; // Correctly assign bitcoinjs-lib to window.bitcoin
+                if (typeof window['bitcoinjs-lib'] !== "undefined") {
+                    window.bitcoin = window['bitcoinjs-lib'];
+                    console.log("BitcoinJS library loaded successfully:", window.bitcoin);
+                } else {
+                    console.error("BitcoinJS library did not load as expected.");
+                    document.getElementById('error').innerText = "BitcoinJS library failed to load. Please check the script source.";
+                }
             };
             script.onerror = () => {
                 const errorDiv = document.getElementById('error');
