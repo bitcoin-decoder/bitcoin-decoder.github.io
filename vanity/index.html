@@ -10,7 +10,9 @@
             const script = document.createElement('script');
             script.src = "https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js";
             script.crossOrigin = "anonymous";
-            script.onload = () => window.bitcoin = bitcoin;
+            script.onload = () => {
+                window.bitcoin = window['bitcoinjs-lib']; // Correctly assign bitcoinjs-lib to window.bitcoin
+            };
             script.onerror = () => {
                 const errorDiv = document.getElementById('error');
                 if (errorDiv) {
